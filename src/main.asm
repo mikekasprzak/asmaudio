@@ -27,11 +27,17 @@
 	out 61h, al			; re-write it to PPI/Keyboard port B (i.e. TURN SOUND OFF)
 %endmacro
 
+%macro speaker_toggle 0
+	in al, 61h			; read the PPI/Keyboard port B again
+	xor al, 00000011b	; mask-out the speaker and "timer 2 gate" bits
+	out 61h, al			; re-write it to PPI/Keyboard port B (i.e. TOGGLE SOUND)
+%endmacro
+
 %macro speaker_freq 1
-	mov ax, %1		; Frequency
-	out 42h, al		; write low to PIT counter 2's port
-	mov al, ah		; move ah to low
-	out 42h, al		; write low (high) to same port
+	mov ax, %1			; Frequency
+	out 42h, al			; write low to PIT counter 2's port
+	mov al, ah			; move ah to low
+	out 42h, al			; write low (high) to same port
 %endmacro
 
 
@@ -42,7 +48,24 @@ section .text
 start:
 	speaker_init
 	speaker_freq(4560)
-	speaker_on
+	;speaker_on
+	
+	;mov ax, 0
+	;out 40h, al
+	;mov al, ah
+	;out 40h, al
+	mov al, 00110110b
+	out 43h, al
+	
+	; need to store the section, then the function address
+	; also need to figure out where we are (section), heh
+	;cli
+	mov ax, cs
+	shr ax, 2
+	mov [1Ch*4], ax
+	mov ax, speaker_int
+	mov [(1Ch*4)+2], ax
+	;sti
 
 	print(pressakey)
 	keywait
@@ -50,6 +73,12 @@ start:
 	speaker_off
 	
 	ret
+
+speaker_int:
+	push ax
+	speaker_toggle
+	pop ax
+	iret
 
 section .data 
 	; put data items here
