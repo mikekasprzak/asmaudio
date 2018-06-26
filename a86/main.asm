@@ -5,6 +5,8 @@ print MACRO
 	int 21h
 #EM
 
+CODE SEGMENT
+ORG 0100
 start:
 	print(hello)
 	mov [myvar], ah
@@ -12,7 +14,11 @@ start:
 
 	ret
 
-; To store hardcoded data, just store it
+; Include other files
+;INCLUDE blah.asm
+
+; Hardcoded data is stored in the code segment
+EVEN 16		; align to the 16 byte boundary
 hello:
 	db "Hello Wuurm!", 10, '$';
 
