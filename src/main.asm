@@ -75,7 +75,9 @@ start:
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
 
-	mov ax, 2000
+	; IMPORTANT: 0 is actually the largest value, and 1 is the smallest (too small to do anything else)
+	; Thusly, 65535 is 1 less than the largest, and so on.
+	mov ax, 40000
 	out 40h, al
 	mov al, ah
 	out 40h, al
