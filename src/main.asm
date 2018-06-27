@@ -66,7 +66,7 @@ start:
 	mov [old_int], bx
 	mov [old_int+2], ax
 	
-	
+	; https://wiki.osdev.org/Programmable_Interval_Timer
 	cli
 	mov ax, 0
 	mov es, ax
@@ -77,7 +77,7 @@ start:
 
 	; IMPORTANT: To avoid division by zero, 0 is treated as 65536 (i.e. the largest value).
 	; WARNING: Use too small a value (1), and there wont be enough CPU time to do anything but interrupts.
-	mov ax, 40000
+	mov ax, 65536/16
 	out 40h, al				; Frequency Divider 0 (low)
 	mov al, ah
 	out 40h, al				; Frequency Divider 0 (high)
