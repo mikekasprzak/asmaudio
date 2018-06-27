@@ -75,12 +75,13 @@ start:
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
 
-	; IMPORTANT: 0 is actually the largest value, and 1 is the smallest (too small to do anything else)
-	; Thusly, 65535 is 1 less than the largest, and so on.
+	; IMPORTANT: To avoid division by zero, 0 is treated as 65536 (i.e. the largest value).
+	; WARNING: Use too small a value (1), and there wont be enough CPU time to do anything but interrupts.
 	mov ax, 40000
-	out 40h, al
+	out 40h, al				; Frequency Divider 0 (low)
 	mov al, ah
-	out 40h, al
+	out 40h, al				; Frequency Divider 0 (high)
+	
 	;mov al, 00110110b	; doesn't work
 	;out 43h, al
 	;in al, 43h ; 0xff for some reason
