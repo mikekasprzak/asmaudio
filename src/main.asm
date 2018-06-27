@@ -10,6 +10,11 @@
 	int 16h
 %endmacro
 
+%macro keyget 0
+	mov ah, 1
+	int 16h
+%endmacro
+
 %macro speaker_init 0
 	mov al, 10110110b
 	out 43h, al
@@ -50,25 +55,61 @@ start:
 	speaker_freq(4560)
 	;speaker_on
 	
-	;mov ax, 0
-	;out 40h, al
-	;mov al, ah
-	;out 40h, al
-	mov al, 00110110b
-	out 43h, al
+	push ds
+	mov ax, 0
+	mov ds, ax
+	mov ax, [ds:(1Ch*4)+0]
+	mov bx, ax
+	mov ax, [ds:(1Ch*4)+2]
+	pop ds
 	
-	; need to store the section, then the function address
-	; also need to figure out where we are (section), heh
-	;cli
-	mov ax, cs
-	shr ax, 2
-	mov [1Ch*4], ax
+	mov [old_int], bx
+	mov [old_int+2], ax
+	
+	
+	cli
+	mov ax, 0
+	mov es, ax
 	mov ax, speaker_int
-	mov [(1Ch*4)+2], ax
-	;sti
+	mov [es:(1Ch*4)+0], ax
+	mov ax, cs
+	mov [es:(1Ch*4)+2], ax
+
+	mov ax, 2000
+	out 40h, al
+	mov al, ah
+	out 40h, al
+	;mov al, 00110110b	; doesn't work
+	;out 43h, al
+	;in al, 43h ; 0xff for some reason
+
+	sti
+
+;	mov bx, 40
+;woo:
+;	mov ax, -1
+;woop:
+;	nop
+;	dec ax
+;	jnz woop
+;	dec bx
+;	jnz woo
 
 	print(pressakey)
-	keywait
+
+	;keywait
+loop:
+	keyget
+	jz loop
+
+	cli
+	mov ax, 0
+	mov es, ax
+	mov ax, [old_int]
+	mov [es:(1Ch*4)+0], ax
+	mov ax, [old_int+2]
+	mov [es:(1Ch*4)+2], ax
+	sti
 
 	speaker_off
 	
@@ -87,4 +128,4 @@ pressakey:
 
 section .bss
 	; put uninitialized data here
-oldint: resw 1
+old_int: resb 4
