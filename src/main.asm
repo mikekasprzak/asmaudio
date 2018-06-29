@@ -74,10 +74,15 @@ start:
 	mov [es:(1Ch*4)+0], ax
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
+	
+	; 1.193182 MHz
+	; 1193182/65536=18.2065 (default)
+	; 1193182/18.2065=65536 (reverse)
+	; thus, divide by the number of steps you want
 
 	; IMPORTANT: To avoid division by zero, 0 is treated as 65536 (i.e. the largest value).
 	; WARNING: Use too small a value (1), and there wont be enough CPU time to do anything but interrupts.
-	mov ax, 65536/16
+	mov ax, 1193182/50
 	out 40h, al				; Frequency Divider 0 (low)
 	mov al, ah
 	out 40h, al				; Frequency Divider 0 (high)
@@ -129,6 +134,12 @@ section .data
 pressakey:
 	db "Press a key to continue.", 10, '$';
 
+song_pos:
+	db 0
+song:
+	incbin "src/out.bin";
+
 section .bss
 	; put uninitialized data here
 old_int: resb 4
+
