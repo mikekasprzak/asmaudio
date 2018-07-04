@@ -53,15 +53,15 @@
 %endmacro
 
 
-	org 100h 
+	org 100h
 section .text
 	[BITS 16]
 
 start:
 	speaker_init
-	speaker_freq(4560)
+	;speaker_freq(4560)
 	;speaker_on
-	
+
 	push ds
 	mov ax, 0
 	mov ds, ax
@@ -69,10 +69,10 @@ start:
 	mov bx, ax
 	mov ax, [ds:(1Ch*4)+2]
 	pop ds
-	
+
 	mov [old_int], bx
 	mov [old_int+2], ax
-	
+
 	; https://wiki.osdev.org/Programmable_Interval_Timer
 	cli
 	mov ax, 0
@@ -81,7 +81,7 @@ start:
 	mov [es:(1Ch*4)+0], ax
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
-	
+
 	; 1.193182 MHz
 	; 1193182/65536=18.2065 (default)
 	; 1193182/18.2065=65536 (reverse)
@@ -93,7 +93,7 @@ start:
 	out 40h, al				; Frequency Divider 0 (low)
 	mov al, ah
 	out 40h, al				; Frequency Divider 0 (high)
-	
+
 	;mov al, 00110110b	; doesn't work
 	;out 43h, al
 	;in al, 43h ; 0xff for some reason
@@ -127,26 +127,27 @@ loop:
 	sti
 
 	speaker_off
-	
+
 	ret
 
 speaker_int:
 	push ax
 	push bx
+	push dx
 	push si
 	mov ax, [song_pos]
 	;mov bx, ax
 	mov si, song+4
 	add si, ax*1
 	mov al, [si]
-	
+
 	cmp al, 0
 	jz int_done
-	
+
 	cmp al, 7fh
 	jz int_note_off
 	jle int_note_on
-	
+
 	jmp int_done
 int_note_on:
 	mov bx, notes
@@ -154,10 +155,10 @@ int_note_on:
 	dec al			; use 1 less
 	add bx, ax
 	mov ax, [bx]
-	
+
 	_speaker_freq
 	speaker_on
-	
+
 	jmp int_done
 int_note_off:
 	speaker_off
@@ -165,18 +166,22 @@ int_note_off:
 int_done:
 	mov ax, [song_pos]
 	inc ax
-	;and ax, 63h
+	mov bx, 32
+	xor dx, dx
+	idiv bx
+	mov ax, dx
 	mov [song_pos], ax
-	
+
 	;inc word [song_pos]
 
 ;	speaker_toggle
 	pop si
+	pop dx
 	pop bx
 	pop ax
 	iret
 
-section .data 
+section .data
 	; put data items here
 pressakey:
 	db "Press a key to continue.", 10, '$';
@@ -184,9 +189,9 @@ pressakey:
 notes:
 	; IMPORTANT: Can't do first row because the smallest timer tick is 18.2 (i.e. 65536)
 	; 	C,				C#,				D,				D#,				E,				F,				F#,				G,				G#,				A,				A#,				B
-;	dw	1193182/16,		1193182/17,		1193182/18,		1193182/19,	1193182/20,	1193182/21,	1193182/23,	1193182/24,	1193182/25,	1193182/27,	1193182/29,	1193182/30;
-	dw	1193182/32,		1193182/34,		1193182/36,		1193182/38,	1193182/41,	1193182/43,	1193182/46,	1193182/49,	1193182/51,	1193182/55,	1193182/58,	1193182/61;
-	dw	1193182/65,		1193182/69,		1193182/73,		1193182/77,	1193182/82,	1193182/87,	1193182/92,	1193182/98,	1193182/103,	1193182/110,	1193182/116,	1193182/123;
+;	dw	1193182/16,		1193182/17,		1193182/18,		1193182/19,		1193182/20,		1193182/21,		1193182/23,		1193182/24,		1193182/25,		1193182/27,		1193182/29,		1193182/30;
+	dw	1193182/32,		1193182/34,		1193182/36,		1193182/38,		1193182/41,		1193182/43,		1193182/46,		1193182/49,		1193182/51,		1193182/55,		1193182/58,		1193182/61;
+	dw	1193182/65,		1193182/69,		1193182/73,		1193182/77,		1193182/82,		1193182/87,		1193182/92,		1193182/98,		1193182/103,	1193182/110,	1193182/116,	1193182/123;
 	dw	1193182/130,	1193182/138,	1193182/146,	1193182/155,	1193182/164,	1193182/174,	1193182/185,	1193182/196,	1193182/207,	1193182/220,	1193182/233,	1193182/246;
 	dw	1193182/261,	1193182/277,	1193182/293,	1193182/311,	1193182/329,	1193182/349,	1193182/370,	1193182/392,	1193182/415,	1193182/440,	1193182/466,	1193182/493;
 	dw	1193182/523,	1193182/554,	1193182/587,	1193182/622,	1193182/659,	1193182/698,	1193182/740,	1193182/784,	1193182/830,	1193182/880,	1193182/932,	1193182/987;
