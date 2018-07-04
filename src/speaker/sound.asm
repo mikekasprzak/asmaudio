@@ -57,6 +57,13 @@ jump_table:
 	out 61h, al					; re-write it to PPI/Keyboard port B (i.e. TURN SOUND OFF)
 %endmacro
 
+; toggle the speaker
+%macro SPEAKER_TOGGLE 0
+	in al, 61h					; read the PPI/Keyboard port B again
+	xor al, 00000011b			; mask-out the speaker and "timer 2 gate" bits
+	out 61h, al					; re-write it to PPI/Keyboard port B (i.e. TURN SOUND OFF)
+%endmacro
+
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
@@ -71,13 +78,13 @@ sound_init:
 	mov ax, [ds:(1Ch*4)+0]
 	mov bx, ax
 	mov ax, [ds:(1Ch*4)+2]
-	; store the original timer interrupt
-	mov [old_interrupt+0], bx
-	mov [old_interrupt+2], ax
-
+	mov cx, ax
 	; from here on, use CS as the address of DS
 	mov ax, cs
 	mov ds, ax
+	; store the original timer interrupt
+	mov [old_interrupt+0], bx
+	mov [old_interrupt+2], cx
 
 	; switch to our custom timer interrupt
 	cli
@@ -129,6 +136,11 @@ sound_uninit:
 ; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
 sound_interrupt:
+	push ax
+
+	SPEAKER_TOGGLE
+
+	pop ax
 	iret
 
 
