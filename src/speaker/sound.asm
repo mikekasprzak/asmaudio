@@ -92,10 +92,14 @@ sound_init:
 	; Configure PIT2 to modulate a square wave
 	SPEAKER_PIT2_INIT
 
+	mov ax, 4444
+	SPEAKER_PIT2_FREQ
+	SPEAKER_ON
+
 	; restore DS, ES and return
 	pop es
 	pop ds
-	ret
+	retf
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to shutdown the sound interface
@@ -120,7 +124,7 @@ sound_uninit:
 
 	; restore DS and return
 	pop ds
-	ret
+	retf
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
