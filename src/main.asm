@@ -63,7 +63,7 @@ start:
 	;speaker_on
 
 	push ds
-	mov ax, 0
+	xor ax, ax					; clear ax
 	mov ds, ax
 	mov ax, [ds:(1Ch*4)+0]
 	mov bx, ax
@@ -75,7 +75,7 @@ start:
 
 	; https://wiki.osdev.org/Programmable_Interval_Timer
 	cli
-	mov ax, 0
+	xor ax, ax
 	mov es, ax
 	mov ax, speaker_int
 	mov [es:(1Ch*4)+0], ax
