@@ -1,18 +1,26 @@
-
-	org 0h
+; ----------------------------------------------------------------------------------------------- ;
+	org 0h						; org 0 because we are not a program and we only care about ourselves
+; ----------------------------------------------------------------------------------------------- ;
 section .text
 	[BITS 16]
-
-	; Jump Table - "origin+4"
+; ----------------------------------------------------------------------------------------------- ;
+; Jump Table - "origin+4"
 jump_table:
-	jmp word sound_init
+	ret							; function 0 just returns (which makes running us do nothing)
 	nop
-	jmp word sound_uninit
+	nop
+	nop
+
+	jmp word sound_init			; function 1 initializes audio
+	nop
+
+	jmp word sound_uninit		; function 2 shuts down audio
 	nop
 
 
-
+; ----------------------------------------------------------------------------------------------- ;
 ; MACROS
+; ----------------------------------------------------------------------------------------------- ;
 ; Initialize the PIT2 to make the speaker output a square wave
 %macro SPEAKER_PIT2_INIT 0
 	mov al, 10110110b
@@ -22,35 +30,35 @@ jump_table:
 ; Set the frequency of the square wave
 ; @param ax Frequency (1193182/18.2 = 65536)
 %macro SPEAKER_PIT2_FREQ 0
-	out 42h, al			; write low to PIT counter 2's port
-	mov al, ah			; move ah to low
-	out 42h, al			; write low (high) to same port
+	out 42h, al					; write low to PIT counter 2's port
+	mov al, ah					; move ah to low
+	out 42h, al					; write low (high) to same port
 %endmacro
 
 ; Set the frequency of the timer interrupt function
 ; @param ax Frequency (1193182/18.2 = 65536)
 %macro SPEAKER_PIT0_FREQ 0
-	out 40h, al			; write low to PIT counter 0's port
-	mov al, ah			; move ah to low
-	out 40h, al			; write low (high) to same port
+	out 40h, al					; write low to PIT counter 0's port
+	mov al, ah					; move ah to low
+	out 40h, al					; write low (high) to same port
 %endmacro
 
 ; turn on the speaker
 %macro SPEAKER_ON 0
-	in al, 61h			; read PPI/Keyboard port B (because speaker bit is here)
-	or al, 00000011b	; mask-in the speaker and the "timer 2 gate" bits
-	out 61h, al			; re-write it to the PPI/Keyboard port B (i.e. TURN ON SOUND)
+	in al, 61h					; read PPI/Keyboard port B (because speaker bit is here)
+	or al, 00000011b			; mask-in the speaker and the "timer 2 gate" bits
+	out 61h, al					; re-write it to the PPI/Keyboard port B (i.e. TURN ON SOUND)
 %endmacro
 
 ; turn off the speaker
 %macro SPEAKER_OFF 0
-	in al, 61h			; read the PPI/Keyboard port B again
-	and al, 11111100b	; mask-out the speaker and "timer 2 gate" bits
-	out 61h, al			; re-write it to PPI/Keyboard port B (i.e. TURN SOUND OFF)
+	in al, 61h					; read the PPI/Keyboard port B again
+	and al, 11111100b			; mask-out the speaker and "timer 2 gate" bits
+	out 61h, al					; re-write it to PPI/Keyboard port B (i.e. TURN SOUND OFF)
 %endmacro
 
 
-
+; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
 sound_init:
 	; store DS
@@ -89,7 +97,7 @@ sound_init:
 	pop ds
 	ret
 
-
+; ----------------------------------------------------------------------------------------------- ;
 ; Used to shutdown the sound interface
 sound_uninit:
 	; store DS and use CS as the address of DS
@@ -114,7 +122,7 @@ sound_uninit:
 	pop ds
 	ret
 
-
+; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
 sound_interrupt:
 	iret
@@ -122,8 +130,9 @@ sound_interrupt:
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Initialized Data
+; ----------------------------------------------------------------------------------------------- ;
 section .data
-
+; ----------------------------------------------------------------------------------------------- ;
 ; Placeholder song for when no song is currently set -
 empty_song:
 	; HEADER SECTION
@@ -137,14 +146,15 @@ empty_song:
 	dw 0
 
 	; PATTERN SECTION
-	dw 8		; SECTION SIZE
+	dw 10		; SECTION SIZE
 	dw 1		; Width
-	dw 4		; Height
+	dw 6		; Height
 	; Data
+	db 0, 0
 	db 24h, 7fh
 	db 28h, 7fh
 
-
+; ----------------------------------------------------------------------------------------------- ;
 ; Note lookup table: C1-B8 (i.e. 96 possible values) - 192 bytes
 note_table:
 	; 	C,				C#,				D,				D#,				E,				F,				F#,				G,				G#,				A,				A#,				B
@@ -159,7 +169,10 @@ note_table:
 
 
 ; ----------------------------------------------------------------------------------------------- ;
-; Uninitialized Data
+; Uninitialized Data (i.e. does not take up space in the binary)
+; ----------------------------------------------------------------------------------------------- ;
 section .bss
+; ----------------------------------------------------------------------------------------------- ;
 old_interrupt:
 	resb 4
+; ----------------------------------------------------------------------------------------------- ;
