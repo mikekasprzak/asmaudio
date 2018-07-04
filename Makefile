@@ -7,7 +7,7 @@ $(TARGET): $(SOURCE_FILES)
 
 run: $(TARGET)
 	dosbox $(TARGET)
-	
+
 clean:
 	rm -fr $(TARGET)
 
