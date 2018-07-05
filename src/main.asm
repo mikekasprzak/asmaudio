@@ -81,6 +81,14 @@ main:
 	add ax, bx
 	mov [audio_init+2], ax
 	mov [audio_uninit+2], ax
+	mov [audio_playMusic+2], ax
+	mov [audio_stopMusic+2], ax
+	mov [audio_pauseMusic+2], ax
+	mov [audio_resumeMusic+2], ax
+	mov [audio_playSound+2], ax
+	mov [audio_stopSound+2], ax
+	mov [audio_pauseSound+2], ax
+	mov [audio_resumeSound+2], ax
 
 	; Read the Song
 	mov dx, tSongFile
@@ -92,8 +100,8 @@ main:
 	call far [audio_init]
 
 	; Play the song
-	;mov ax, song
-	;call far [audio_playMusic]
+	mov ax, song
+	call far [audio_playMusic]
 
 	PRINT(tPressAKey)
 
