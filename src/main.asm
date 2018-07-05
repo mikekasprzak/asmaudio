@@ -70,18 +70,18 @@ section .text
 main:
 	; Read the Sound Engine
 	mov dx, tSpeakerFile
-	mov cx, sound_engine
+	mov cx, audio_engine
 	call read_file
 	jc error
 
 	; Hook-up the jump table for the active Sound Engine
-	mov ax, sound_engine
+	mov ax, audio_engine
 	shr ax, 4
 	mov bx, ds
 	add ax, bx
-	mov [sound_init+2], ax
-	mov [sound_uninit+2], ax
-	
+	mov [audio_init+2], ax
+	mov [audio_uninit+2], ax
+
 	; Read the Song
 	mov dx, tSongFile
 	mov cx, song
@@ -89,11 +89,11 @@ main:
 	jc error
 
 	; Initialize the Sound Engine
-	call far [sound_init]
-	
+	call far [audio_init]
+
 	; Play the song
 	;mov ax, song
-	;call far [sound_playSong]
+	;call far [audio_playMusic]
 
 	PRINT(tPressAKey)
 
@@ -102,7 +102,7 @@ loop:
 	jz loop
 
 	; Uninitialize the Sound Engine
-	call far [sound_uninit]
+	call far [audio_uninit]
 
 
 	ret
@@ -138,16 +138,34 @@ _read_file_success:
 	mov ax, cx
 _read_file_done:
 	ret
-	
+
 ; ----------------------------------------------------------------------------------------------- ;
 section .data
 ; ----------------------------------------------------------------------------------------------- ;
 align 16
 ; Functions
-sound_init:
+audio_init:
 	dw 4, 0
-sound_uninit:
+audio_uninit:
 	dw 8, 0
+
+audio_playMusic:
+	dw 16, 0
+audio_stopMusic:
+	dw 20, 0
+audio_pauseMusic:
+	dw 24, 0
+audio_resumeMusic:
+	dw 28, 0
+
+audio_playSound:
+	dw 32, 0
+audio_stopSound:
+	dw 36, 0
+audio_pauseSound:
+	dw 40, 0
+audio_resumeSound:
+	dw 44, 0
 
 ; Strings
 tPressAKey:
@@ -167,7 +185,7 @@ tSongFile:
 section .bss
 ; ----------------------------------------------------------------------------------------------- ;
 align 16
-sound_engine:
+audio_engine:
 	resb 2048
 
 song:
@@ -175,4 +193,4 @@ song:
 
 _read_file_handle:
 	resw 1
-	
+

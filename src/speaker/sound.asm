@@ -6,17 +6,49 @@ section .text
 ; ----------------------------------------------------------------------------------------------- ;
 ; Jump Table - "origin+4"
 jump_table:
-	ret							; function 0 just returns (which makes running us do nothing)
+	; function 0
+	ret							; just returns (which makes running us do nothing)
+	nop
+	nop
+	nop
+	; function 1
+	jmp word audio_init			; initializes audio
+	nop
+	; function 2
+	jmp word audio_uninit		; shuts down audio
+	nop
+	; function 3
+	ret							; ??
 	nop
 	nop
 	nop
 
-	jmp word sound_init			; function 1 initializes audio
+	; function 4
+	jmp word audio_playMusic	; plays a song
+	nop
+	; function 5
+	jmp word audio_stopMusic	; stops a song
+	nop
+	; function 6
+	jmp word audio_pauseMusic	; pauses the song
+	nop
+	; function 7
+	jmp word audio_resumeMusic	; resumes the song
 	nop
 
-	jmp word sound_uninit		; function 2 shuts down audio
-	nop
 
+	; function 8
+	jmp word audio_playSound	; plays a sound
+	nop
+	; function 9
+	jmp word audio_stopSound	; stop a sound
+	nop
+	; function 10
+	jmp word audio_pauseSound	; pause a sound
+	nop
+	; function 11
+	jmp word audio_resumeSound	; resume a sound
+	nop
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; MACROS
@@ -67,7 +99,7 @@ jump_table:
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
-sound_init:
+audio_init:
 	; store DS
 	push ds
 	push es
@@ -90,7 +122,7 @@ sound_init:
 	cli
 	mov ax, 0
 	mov es, ax
-	mov ax, sound_interrupt
+	mov ax, audio_interrupt
 	mov [es:(1Ch*4)+0], ax
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
@@ -110,7 +142,7 @@ sound_init:
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to shutdown the sound interface
-sound_uninit:
+audio_uninit:
 	; store DS and use CS as the address of DS
 	push ds
 	mov ax, cs
@@ -135,13 +167,36 @@ sound_uninit:
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
-sound_interrupt:
+audio_interrupt:
 	push ax
 
 	SPEAKER_TOGGLE
 
 	pop ax
 	iret
+
+
+
+; ----------------------------------------------------------------------------------------------- ;
+audio_playMusic:
+	retf
+audio_stopMusic:
+	retf
+audio_pauseMusic:
+	retf
+audio_resumeMusic:
+	retf
+
+; ----------------------------------------------------------------------------------------------- ;
+audio_playSound:
+	retf
+audio_stopSound:
+	retf
+audio_pauseSound:
+	retf
+audio_resumeSound:
+	retf
+
 
 
 ; ----------------------------------------------------------------------------------------------- ;
