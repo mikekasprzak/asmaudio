@@ -170,10 +170,34 @@ audio_uninit:
 audio_interrupt:
 	push ax
 
-	SPEAKER_TOGGLE
+	;SPEAKER_TOGGLE
 
 	pop ax
 	iret
+
+; ----------------------------------------------------------------------------------------------- ;
+STRUC SongState
+.seq:	resw 1			; Sequence
+.pat	resw 1			; Pattern
+.pos:	resw 1			; Position
+.size:
+ENDSTRUC
+; ----------------------------------------------------------------------------------------------- ;
+_song:
+ISTRUC SongState
+	AT SongState.seq, dw 0
+	AT SongState.pat, dw 0
+	AT SongState.pos, dw 0
+IEND
+
+
+; ----------------------------------------------------------------------------------------------- ;
+_currentStep:		; Sub-steps of a Pattern
+	dw 0
+; ----------------------------------------------------------------------------------------------- ;
+_currentBPM:
+	dw 0
+; ----------------------------------------------------------------------------------------------- ;
 
 
 
