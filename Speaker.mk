@@ -1,4 +1,4 @@
-TARGET					:=	speaker.bin
+TARGET					:=	speaker.drv
 
 SOURCE_FILES			:=	$(wildcard src/speaker/*.asm)
 

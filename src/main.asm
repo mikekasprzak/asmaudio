@@ -69,7 +69,7 @@ section .text
 ; ----------------------------------------------------------------------------------------------- ;
 main:
 	; Read the Sound Engine
-	mov dx, tSpeakerFile
+	mov dx, tSpeakerDriverFile
 	mov cx, audio_engine
 	call read_file
 	jc error
@@ -174,8 +174,8 @@ tPressAKey:
 tError:
 	db "Error", 10, "$";
 
-tSpeakerFile:
-	db "speaker.bin", 0;
+tSpeakerDriverFile:
+	db "speaker.drv", 0;
 tSongFile:
 	db "sp-song.bin", 0;
 

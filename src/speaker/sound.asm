@@ -1,8 +1,8 @@
 ; ----------------------------------------------------------------------------------------------- ;
-	org 0h						; org 0 because we are not a program and we only care about ourselves
+org 0h							; org 0 because we are not a program and we only care about ourselves
+[BITS 16]
 ; ----------------------------------------------------------------------------------------------- ;
 section .text
-	[BITS 16]
 ; ----------------------------------------------------------------------------------------------- ;
 ; Jump Table - "origin+4"
 jump_table:
@@ -100,7 +100,7 @@ jump_table:
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
 audio_init:
-	; store DS
+	; store DS and ES
 	push ds
 	push es
 
@@ -145,6 +145,7 @@ audio_init:
 audio_uninit:
 	; store DS and use CS as the address of DS
 	push ds
+	push es
 	mov ax, cs
 	mov ds, ax
 
@@ -158,12 +159,64 @@ audio_uninit:
 	mov [es:(1Ch*4)+2], ax
 	sti
 
+	; Set frequency back to default (0, aka 65536)
+	mov ax, 0
+	SPEAKER_PIT0_FREQ
+
 	; turn off the speaker
 	SPEAKER_OFF
 
-	; restore DS and return
+	; restore DS, ES and return
+	pop es
 	pop ds
 	retf
+
+; ----------------------------------------------------------------------------------------------- ;
+; ----------------------------------------------------------------------------------------------- ;
+; @param %1 State address
+%macro SONG_DECODE_PAT 1
+	mov word si, %1 + State.data
+
+	mov word ax, [si]	; ax = State.data address. auto-inc, si = State.seq
+	mov word bx, [si]	; bx = State.seq index. auto-inc, si = State.pat
+	mov word di, si		; di = State.pat address
+	mov word si, ax		; si = State.data address
+	mov word ax, [si]	; ax = sizeof the Header section
+	add word si, ax		; si = Sequence section
+	mov word dx, [si]	; dx = sizeof the Sequence section (in bytes). auto-inc, si = Sequence #0 address
+	mov word ax, si		; ax = Sequence #0 address
+	shl word bx, 1		; bx = State.seq * 2
+	add word si, bx		; si = Sequence State.seq address
+	mov word cx, [si]	; cx = Sequency Index
+	;mov word [di], ax	; State.pat = Index of the Pattern in the Sequence
+
+	mov word si, ax		; si = Sequency #0 address
+	add word si, dx		; si = Pattern #0 address
+	cmp word cx, 0		; zf = (cx == 0)
+	jz %%done
+%%loop:
+	mov word ax, [si]	; Read and Auto-Inc
+	add word si, ax		; Add Section Size (moving us to the next section)
+
+	dec word cx			; Decrement counter
+	jnz %%loop			; loop until we reach the section
+%%done:
+	mov word ax, si
+	mov word [di], ax	; State.pat = Pattern CX's address
+%endmacro
+; ----------------------------------------------------------------------------------------------- ;
+; @param %1 DEST: state base address
+; @param %2 SRC: address
+%macro SONG_DECODE 2
+	mov word bx, %2
+	mov word di, %1
+	mov word [di], bx				; State.data
+	mov word [di], 0				; State.seq
+	mov word [di], 0				; State.pat (dummy)
+	mov byte [di], 0				; State.pos
+	mov byte [di], 00000001b		; State.flags
+%endmacro
+
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
@@ -176,20 +229,47 @@ audio_interrupt:
 	iret
 
 ; ----------------------------------------------------------------------------------------------- ;
-STRUC SongState
+STRUC State
+.data:	resw 1			; Data Offset
 .seq:	resw 1			; Sequence
-.pat	resw 1			; Pattern
-.pos:	resw 1			; Position
-.size:
+.pat	resw 1			; Pattern Offset (store the offset rather than the index)
+.pos:	resb 1			; Position (max pattern size is thusly 256)
+.flags:	resb 1			; Flags
+.size:					; Should be 8 bytes
 ENDSTRUC
 ; ----------------------------------------------------------------------------------------------- ;
-_song:
-ISTRUC SongState
-	AT SongState.seq, dw 0
-	AT SongState.pat, dw 0
-	AT SongState.pos, dw 0
+state:
+; ----------------------------------------------------------------------------------------------- ;
+; Global Music Object
+state0:
+ISTRUC State
+	AT State.data,	dw 0
+	AT State.seq,	dw 0
+	AT State.pat,	dw 0
+	AT State.pos,	db 0
+	AT State.flags,	db 0
 IEND
-
+; ----------------------------------------------------------------------------------------------- ;
+; Sound Effect 1
+state1:
+ISTRUC State
+	AT State.data,	dw 0
+	AT State.seq,	dw 0
+	AT State.pat,	dw 0
+	AT State.pos,	db 0
+	AT State.flags,	db 0
+IEND
+; ----------------------------------------------------------------------------------------------- ;
+; Sound Effect 2
+state2:
+ISTRUC State
+	AT State.data,	dw 0
+	AT State.seq,	dw 0
+	AT State.pat,	dw 0
+	AT State.pos,	db 0
+	AT State.flags,	db 0
+IEND
+; ----------------------------------------------------------------------------------------------- ;
 
 ; ----------------------------------------------------------------------------------------------- ;
 _currentStep:		; Sub-steps of a Pattern
@@ -203,12 +283,46 @@ _currentBPM:
 
 ; ----------------------------------------------------------------------------------------------- ;
 audio_playMusic:
+	; store DS, ES
+	push ds
+	push es
+
+	SONG_DECODE state0, ax
+	SONG_DECODE_PAT state0
+
+	; restore DS, ES and return
+	pop es
+	pop ds
 	retf
+
 audio_stopMusic:
+	; store DS, ES
+	push ds
+	push es
+
+	; restore DS, ES and return
+	pop es
+	pop ds
 	retf
+
 audio_pauseMusic:
+	; store DS, ES
+	push ds
+	push es
+
+	; restore DS, ES and return
+	pop es
+	pop ds
 	retf
+
 audio_resumeMusic:
+	; store DS, ES
+	push ds
+	push es
+
+	; restore DS, ES and return
+	pop es
+	pop ds
 	retf
 
 ; ----------------------------------------------------------------------------------------------- ;
