@@ -282,6 +282,7 @@ _currentBPM:
 
 
 ; ----------------------------------------------------------------------------------------------- ;
+; @param ax address of song to play
 audio_playMusic:
 	; store DS, ES
 	push ds
@@ -356,8 +357,9 @@ empty_song:
 
 	; PATTERN SECTION
 	dw 10		; SECTION SIZE
-	dw 1		; Width
 	dw 6		; Height
+	db 1		; Width
+	db 1		; Flags
 	; Data
 	db 0, 0
 	db 24h, 7fh
