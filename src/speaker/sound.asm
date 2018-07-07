@@ -178,12 +178,14 @@ audio_uninit:
 	mov word si, %1 + State.data
 
 	mov word ax, [si]	; ax = State.data address. auto-inc, si = State.seq
-	mov word bx, [si]	; bx = State.seq index. auto-inc, si = State.pat
+	mov word bx, [si+2]	; bx = State.seq index. auto-inc, si = State.pat
 	mov word di, si		; di = State.pat address
 	mov word si, ax		; si = State.data address
 	mov word ax, [si]	; ax = sizeof the Header section
 	add word si, ax		; si = Sequence section
 	mov word dx, [si]	; dx = sizeof the Sequence section (in bytes). auto-inc, si = Sequence #0 address
+	; *** expecting si+2
+		add si, 2
 	mov word ax, si		; ax = Sequence #0 address
 	shl word bx, 1		; bx = State.seq * 2
 	add word si, bx		; si = Sequence State.seq address
@@ -196,6 +198,8 @@ audio_uninit:
 	jz %%done
 %%loop:
 	mov word ax, [si]	; Read and Auto-Inc
+	; *** expecting si+2
+		add si, 2
 	add word si, ax		; Add Section Size (moving us to the next section)
 
 	dec word cx			; Decrement counter
@@ -210,11 +214,11 @@ audio_uninit:
 %macro SONG_DECODE 2
 	mov word bx, %2
 	mov word di, %1
-	mov word [di], bx				; State.data
-	mov word [di], 0				; State.seq
-	mov word [di], 0				; State.pat (dummy)
-	mov byte [di], 0				; State.pos
-	mov byte [di], 00000001b		; State.flags
+	mov word [%1+0], bx				; State.data
+	mov word [%1+2], 0				; State.seq
+	mov word [%1+4], 0				; State.pat (dummy)
+	mov byte [%1+6], 0				; State.pos
+	mov byte [%1+7], 00000001b		; State.flags
 %endmacro
 
 
