@@ -13,6 +13,6 @@ run: $(TARGET)
 	dosbox $(TARGET)
 
 clean:
-	rm -fr $(TARGET)
+	rm -fr $(TARGET) $(DRIVER_FILES)
 
 .PHONY: run clean

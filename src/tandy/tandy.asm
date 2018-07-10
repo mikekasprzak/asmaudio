@@ -96,6 +96,23 @@ jump_table:
 	out 61h, al					; re-write it to PPI/Keyboard port B (i.e. TURN SOUND OFF)
 %endmacro
 
+%macro TANDY_INIT 0
+    in      al, 61h
+    or      al, 60h
+    out     61h, al
+%endmacro
+
+; 0 = max volume
+; 14 = min volume
+; 15 = off
+%macro TANDY_OUT 0
+	out 0c0h, al
+	mov al, ah
+	out 0c0h, al
+	mov al, 10010000b    ; *** ^
+	out 0c0h, al
+%endmacro
+
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
@@ -127,13 +144,19 @@ audio_init:
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
 	sti
+	
+	TANDY_INIT
+
+	mov al, 080h | ((4444 >> 4) & 0Fh)
+	mov ah, (4444 >> 8) & 03Fh;
+	TANDY_OUT
 
 	; Configure PIT2 to modulate a square wave
-	SPEAKER_PIT2_INIT
+;	SPEAKER_PIT2_INIT
 
-	mov ax, 4444
-	SPEAKER_PIT2_FREQ
-	SPEAKER_ON
+;	mov ax, 4444
+;	SPEAKER_PIT2_FREQ
+;	SPEAKER_ON
 
 	; restore DS, ES and return
 	pop es
@@ -160,11 +183,11 @@ audio_uninit:
 	sti
 
 	; Set frequency back to default (0, aka 65536)
-	mov ax, 0
-	SPEAKER_PIT0_FREQ
+;	mov ax, 0
+;	SPEAKER_PIT0_FREQ
 
 	; turn off the speaker
-	SPEAKER_OFF
+;	SPEAKER_OFF
 
 	; restore DS, ES and return
 	pop es

@@ -183,7 +183,8 @@ tError:
 	db "Error", 10, "$";
 
 tSpeakerDriverFile:
-	db "speaker.drv", 0;
+;	db "speaker.drv", 0;
+	db "tandy.drv", 0;
 tSongFile:
 	db "sp-song.bin", 0;
 
