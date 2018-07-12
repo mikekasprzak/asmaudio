@@ -113,6 +113,14 @@ jump_table:
 	out 0c0h, al
 %endmacro
 
+%macro TANDY_OUT2 0
+	out 0c0h, al
+	mov al, ah
+	out 0c0h, al
+	mov al, 10110000b    ; *** ^
+	out 0c0h, al
+%endmacro
+
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
@@ -150,6 +158,10 @@ audio_init:
 	mov al, 080h | ((4444 >> 4) & 0Fh)
 	mov ah, (4444 >> 8) & 03Fh;
 	TANDY_OUT
+
+	mov al, 0A0h | ((3333 >> 4) & 0Fh)
+	mov ah, (3333 >> 8) & 03Fh;
+	TANDY_OUT2
 
 	; Configure PIT2 to modulate a square wave
 ;	SPEAKER_PIT2_INIT

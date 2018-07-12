@@ -97,6 +97,64 @@ jump_table:
 %endmacro
 
 
+
+is_input:
+     ;---Return state of DATA SET READY. MPU clears this line when it
+     ;   has a byte waiting to be read from its DATA port.
+     mov   dx,0331h
+     in    al,dx
+     and   al,80h
+     ret
+
+get_mpu_in:
+     mov   dx,0330h
+     in    al,dx
+     ret
+
+is_output:
+     ;---Return state of DATA READ READY. MPU clears this line when it's
+     ;	 OK for us to write to the MPU's ports.
+     mov   dx,0331h
+     in    al,dx
+     and   al,40h
+     ret
+
+put_mpu_out:
+     mov   dx,0330h
+     out   dx,al
+     ret
+
+set_uart:
+     ;---Wait until it's OK to write to the MPU's ports. Note: if there's
+     ;   something wrong with the MPU, we could be locked in this loop
+     ;   forever. You really should add a little "escape code" within this
+     ;   first loop, or at least a timeout of let's say 1 second.
+sr1: call  is_output
+     jnz   SHORT sr1
+     ;---Send FF command to the MPU.
+     mov   al,0FFh
+     out   dx,al
+     ;---Wait for the MPU to make a byte available for reading from its
+     ;   DATA port. You could also lock up here if you're dealing with
+     ;   a game card that doesn't even implement a bi-directional
+     ;   COMMAND/STATUS port. Therefore, another few seconds time-out is
+     ;   appropriate here, and if a time-out occurs, just jump to sr3.
+again:
+     call  is_input
+     jnz   SHORT again
+     ;---Get the byte and check for an ACK (FE) to the cmd we sent. If
+     ;   not an ACK, discard this and keep looking for that ACK.
+     call  get_mpu_in
+     cmp   al,0FEh
+     jne   SHORT again
+     ;---Wait until it's OK to write to the MPU's ports.
+sr3: call  is_output
+     jnz   SHORT sr3
+     ;---Send 3F command to the MPU
+     mov   al,03Fh
+     out   dx,al
+     ret
+
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
 audio_init:
@@ -129,11 +187,40 @@ audio_init:
 	sti
 
 	; Configure PIT2 to modulate a square wave
-	SPEAKER_PIT2_INIT
+;	SPEAKER_PIT2_INIT
 
-	mov ax, 4444
-	SPEAKER_PIT2_FREQ
-	SPEAKER_ON
+;	mov ax, 4444
+;	SPEAKER_PIT2_FREQ
+;	SPEAKER_ON
+
+
+	call set_uart
+	
+hee:
+	call is_output
+	jnz hee
+	
+	mov al, 10010000b
+	call put_mpu_out
+
+haa:
+	call is_output
+	jnz haa
+
+	mov al, 55
+	call put_mpu_out
+
+hoo:
+	call is_output
+	jnz hoo
+
+	mov al, 127
+	call put_mpu_out
+
+huu:
+	call is_output
+	jnz huu
+
 
 	; restore DS, ES and return
 	pop es
@@ -157,14 +244,14 @@ audio_uninit:
 	mov [es:(1Ch*4)+0], ax
 	mov ax, [old_interrupt+2]
 	mov [es:(1Ch*4)+2], ax
-	sti
+	sti	
 
 	; Set frequency back to default (0, aka 65536)
-	mov ax, 0
-	SPEAKER_PIT0_FREQ
+	;mov ax, 0
+	;SPEAKER_PIT0_FREQ
 
 	; turn off the speaker
-	SPEAKER_OFF
+	;SPEAKER_OFF
 
 	; restore DS, ES and return
 	pop es
