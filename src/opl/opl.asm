@@ -104,12 +104,12 @@ jump_table:
 ; 220, 222 ; Left/Right Address/Status (W/R)
 ; 221, 223 ; Left/Right Data (W)
 
-%macro OPL_MONO_OUT 2
+%macro OPL_OUT 2
 	mov ax, %1 | (%2 << 8)
-	mov dx, 338h
+	mov dx, 388h
 	out dx, al
 	mov al, ah
-	mov dx, 339h
+	mov dx, 389h
 	out dx, al
 %endmacro
 
@@ -165,16 +165,16 @@ audio_init:
 
 	; http://www.shipbrook.net/jeff/sb.html
 
-	OPL_L_OUT 20h, 01h
-	OPL_L_OUT 40h, 10h
-	OPL_L_OUT 60h, 0F0h
-	OPL_L_OUT 80h, 77h
-	OPL_L_OUT 0A0h, 98h		; Frequency low
-	OPL_L_OUT 23h, 01h
-	OPL_L_OUT 43h, 20h		; volume
-	OPL_L_OUT 63h, 0F0h
-	OPL_L_OUT 83h, 77h
-	OPL_L_OUT 0B0h, 31h		; Frequency high (2 bits). 20h (00100000b) is the "Note On" bit
+	OPL_OUT 20h, 01h
+	OPL_OUT 40h, 10h
+	OPL_OUT 60h, 0F0h
+	OPL_OUT 80h, 77h
+	OPL_OUT 0A0h, 94h		; Frequency low
+	OPL_OUT 23h, 01h
+	OPL_OUT 43h, 20h		; volume
+	OPL_OUT 63h, 0F0h
+	OPL_OUT 83h, 77h
+	OPL_OUT 0B0h, 31h		; Frequency high (2 bits). 20h (00100000b) is the "Note On" bit
 
 
 	; Configure PIT2 to modulate a square wave
@@ -208,7 +208,7 @@ audio_uninit:
 	mov [es:(1Ch*4)+2], ax
 	sti
 
-	OPL_R_OUT 0B0h, 11h						; 20h (00100000b) is the "Note On" bit, so here it's off
+	OPL_OUT 0B0h, 11h						; 20h (00100000b) is the "Note On" bit, so here it's off
 
 
 	; Set frequency back to default (0, aka 65536)
