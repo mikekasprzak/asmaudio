@@ -97,6 +97,41 @@ jump_table:
 %endmacro
 
 
+; Adlib
+; 388 ; Address/Status (W/R)
+; 389 ; Data (W)
+
+; 220, 222 ; Left/Right Address/Status (W/R)
+; 221, 223 ; Left/Right Data (W)
+
+%macro OPL_MONO_OUT 2
+	mov ax, %1 | (%2 << 8)
+	mov dx, 338h
+	out dx, al
+	mov al, ah
+	mov dx, 339h
+	out dx, al
+%endmacro
+
+
+%macro OPL_L_OUT 2
+	mov ax, %1 | (%2 << 8)
+	mov dx, 220h
+	out dx, al
+	mov al, ah
+	mov dx, 221h
+	out dx, al
+%endmacro
+
+%macro OPL_R_OUT 2
+	mov ax, %1 | (%2 << 8)
+	mov dx, 222h
+	out dx, al
+	mov al, ah
+	mov dx, 223h
+	out dx, al
+%endmacro
+
 ; ----------------------------------------------------------------------------------------------- ;
 ; Used to initialize the sound interface
 audio_init:
@@ -128,12 +163,26 @@ audio_init:
 	mov [es:(1Ch*4)+2], ax
 	sti
 
-	; Configure PIT2 to modulate a square wave
-	SPEAKER_PIT2_INIT
+	; http://www.shipbrook.net/jeff/sb.html
 
-	mov ax, 4444
-	SPEAKER_PIT2_FREQ
-	SPEAKER_ON
+	OPL_L_OUT 20h, 01h
+	OPL_L_OUT 40h, 10h
+	OPL_L_OUT 60h, 0F0h
+	OPL_L_OUT 80h, 77h
+	OPL_L_OUT 0A0h, 98h		; Frequency low
+	OPL_L_OUT 23h, 01h
+	OPL_L_OUT 43h, 20h		; volume
+	OPL_L_OUT 63h, 0F0h
+	OPL_L_OUT 83h, 77h
+	OPL_L_OUT 0B0h, 31h		; Frequency high (2 bits). 20h (00100000b) is the "Note On" bit
+
+
+	; Configure PIT2 to modulate a square wave
+;	SPEAKER_PIT2_INIT
+
+;	mov ax, 4444
+;	SPEAKER_PIT2_FREQ
+;	SPEAKER_ON
 
 	; restore DS, ES and return
 	pop es
@@ -159,12 +208,15 @@ audio_uninit:
 	mov [es:(1Ch*4)+2], ax
 	sti
 
+	OPL_R_OUT 0B0h, 11h						; 20h (00100000b) is the "Note On" bit, so here it's off
+
+
 	; Set frequency back to default (0, aka 65536)
-	mov ax, 0
-	SPEAKER_PIT0_FREQ
+;	mov ax, 0
+;	SPEAKER_PIT0_FREQ
 
 	; turn off the speaker
-	SPEAKER_OFF
+;	SPEAKER_OFF
 
 	; restore DS, ES and return
 	pop es

@@ -185,7 +185,8 @@ tError:
 tSpeakerDriverFile:
 ;	db "speaker.drv", 0;
 ;	db "tandy.drv", 0;
-	db "roland.drv", 0;
+;	db "roland.drv", 0;
+	db "opl.drv", 0;
 tSongFile:
 	db "sp-song.bin", 0;
 
