@@ -233,54 +233,51 @@ audio_interrupt:
 	iret
 
 ; ----------------------------------------------------------------------------------------------- ;
-STRUC State
-.data:	resw 1			; Data Offset
-.seq:	resw 1			; Sequence
-.pat	resw 1			; Pattern Offset (store the offset rather than the index)
-.pos:	resb 1			; Position (max pattern size is thusly 256)
-.flags:	resb 1			; Flags
-.size:					; Should be 8 bytes
+STRUC PlayerGlobal
+.bpm:		resw 1			; Beats per Minute
+.lpb:		resb 1			; Lines per Beat
+.tpl:		resb 1			; Ticks per Line
+;.tps:		resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
+.size:
+ENDSTRUC
+
+STRUC PlayerState
+.data:		resw 1			; Data Offset
+.seqAddr:	resw 1			; Sequence Address
+.seqPos:	resw 1			; Sequence Position
+.patAddr:	resw 1			; Pattern Address
+.patPos:	resw 1			; Pattern Position (Line)
+.lineTick:	resb 1			; Line Tick
+.channels:	resb 1			; Total Number of Channels
+.size:
+ENDSTRUC
+
+STRUC PlayerChannel
+.note:		resb 1			; Note
+.instr:		resb 1			; Instrument
+.vol:		resb 1			; Volume
+.hold:		resb 1			; Hold (how long since the note was last changed)
+;FX go here
+.size:
 ENDSTRUC
 ; ----------------------------------------------------------------------------------------------- ;
-state:
 ; ----------------------------------------------------------------------------------------------- ;
-; Global Music Object
-state0:
-ISTRUC State
-	AT State.data,	dw 0
-	AT State.seq,	dw 0
-	AT State.pat,	dw 0
-	AT State.pos,	db 0
-	AT State.flags,	db 0
-IEND
+playerGlobal:
+	db PlayerGlobal.size
 ; ----------------------------------------------------------------------------------------------- ;
-; Sound Effect 1
-state1:
-ISTRUC State
-	AT State.data,	dw 0
-	AT State.seq,	dw 0
-	AT State.pat,	dw 0
-	AT State.pos,	db 0
-	AT State.flags,	db 0
-IEND
-; ----------------------------------------------------------------------------------------------- ;
-; Sound Effect 2
-state2:
-ISTRUC State
-	AT State.data,	dw 0
-	AT State.seq,	dw 0
-	AT State.pat,	dw 0
-	AT State.pos,	db 0
-	AT State.flags,	db 0
-IEND
+player0:
+	db PlayerState.size
+player0channel0:
+	db PlayerChannel.size
+	db PlayerChannel.size
 ; ----------------------------------------------------------------------------------------------- ;
 
 ; ----------------------------------------------------------------------------------------------- ;
-_currentStep:		; Sub-steps of a Pattern
-	dw 0
+;_currentStep:		; Sub-steps of a Pattern
+;	dw 0
 ; ----------------------------------------------------------------------------------------------- ;
-_currentBPM:
-	dw 0
+;_currentBPM:
+;	dw 0
 ; ----------------------------------------------------------------------------------------------- ;
 
 
@@ -292,8 +289,8 @@ audio_playMusic:
 	push ds
 	push es
 
-	SONG_DECODE state0, ax
-	SONG_DECODE_PAT state0
+;	SONG_DECODE state0, ax
+;	SONG_DECODE_PAT state0
 
 	; restore DS, ES and return
 	pop es
@@ -350,24 +347,25 @@ section .data
 ; Placeholder song for when no song is currently set -
 empty_song:
 	; HEADER SECTION
-	dw 2		; SECTION SIZE
-	dw 120		; BPM
-	dw 0		; Loop Point (or FFFFh if oneshot)
+	dw 2+2										; SECTION SIZE
+	dw (120<<0) | ((4-1)<<12)					; BeatsPerMinute [12], LinesPerBeat [4]
+	;db ((12-1)<<0)								; TicksPerLine [6], ?? [2]
 
 	; ORDER SECTION
-	dw 2		; SECTION SIZE
+	dw 2+2										; SECTION SIZE
 	; Data
 	dw 0
 
 	; PATTERN SECTION
-	dw 10		; SECTION SIZE
-	dw 6		; Height
-	db 1		; Width
-	db 1		; Flags
+	dw 2+2+6									; SECTION SIZE
+	dw ((6-1)<<0) | ((1-1)<<10) | ((1-1)<<14)	; Height [10], Channels [4], Channel Width [2]
 	; Data
-	db 0, 0
-	db 24h, 7fh
-	db 28h, 7fh
+	db 24h
+	db 7fh
+	db 0
+	db 28h
+	db 7fh
+	db 0
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Note lookup table: C1-B8 (i.e. 96 possible values) - 192 bytes
