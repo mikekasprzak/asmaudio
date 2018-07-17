@@ -172,6 +172,51 @@ audio_uninit:
 	retf
 
 ; ----------------------------------------------------------------------------------------------- ;
+STRUC SongHeader
+.chunk:		resw 1
+.beats:		resw 1
+.data:
+ENDSTRUC
+
+STRUC SongSequence
+.chunk:		resw 1
+.data:
+ENDSTRUC
+
+STRUC SongPattern
+.chunk:		resw 1
+.width:		resw 1
+.data:
+ENDSTRUC
+; ----------------------------------------------------------------------------------------------- ;
+STRUC PlayerGlobal
+.bpm:		resw 1			; Beats per Minute
+.lpb:		resb 1			; Lines per Beat
+.tpl:		resb 1			; Ticks per Line
+;.tps:		resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
+.channels:	resb 1			; How many Channels to decode
+.size:
+ENDSTRUC
+
+STRUC PlayerState
+.dataAddr:	resw 1			; Data Address
+.seqAddr:	resw 1			; Sequence Address
+.seqPos:	resw 1			; Sequence Position
+.patAddr:	resw 1			; Pattern Address
+.patPos:	resw 1			; Pattern Position (Line)
+.lineTick:	resb 1			; Line Tick
+.channels:	resb 1			; Total Number of Channels
+.size:
+ENDSTRUC
+
+STRUC PlayerChannel
+.note:		resb 1			; Note
+.instr:		resb 1			; Instrument
+.vol:		resb 1			; Volume
+.hold:		resb 1			; Hold (how long since the note was last changed)
+;FX go here
+.size:
+ENDSTRUC
 ; ----------------------------------------------------------------------------------------------- ;
 ; @param %1 State address
 %macro SONG_DECODE_PAT 1
@@ -212,13 +257,32 @@ audio_uninit:
 ; @param %1 DEST: state base address
 ; @param %2 SRC: address
 %macro SONG_DECODE 2
-	mov word bx, %2
-	mov word di, %1
-	mov word [%1+0], bx				; State.data
-	mov word [%1+2], 0				; State.seq
-	mov word [%1+4], 0				; State.pat (dummy)
-	mov byte [%1+6], 0				; State.pos
-	mov byte [%1+7], 00000001b		; State.flags
+	mov word di, %1+0
+	mov word si, %2
+	mov word cx, [si+SongHeader.chunk]
+	mov word dx, [si+SongHeader.beats]
+	mov word ax, dx
+	and word ax, 0FFFh
+	mov word bx, dx
+	shr word bx, 12
+	mov word [di+PlayerGlobal.bpm], ax
+	mov byte [di+PlayerGlobal.lpb], bl
+	mov byte [di+PlayerGlobal.tpl], 6
+	mov byte [di+PlayerGlobal.channels], 2
+
+	mov word di, %1+PlayerGlobal.size
+	mov word [di+PlayerState.dataAddr], si
+	add si, cx			; next chunk
+	mov word cx, [si+SongSequence.chunk]
+	mov word bx, [si+SongSequence.data]
+	mov word [di+PlayerState.seqAddr], si
+	mov word [di+PlayerState.seqPos], 0
+	add si, cx			; next chunk
+	
+	; loop until we reach the desired chunk
+	
+loop:
+	
 %endmacro
 
 
@@ -231,45 +295,6 @@ audio_interrupt:
 
 	pop ax
 	iret
-
-; ----------------------------------------------------------------------------------------------- ;
-STRUC PlayerGlobal
-.bpm:		resw 1			; Beats per Minute
-.lpb:		resb 1			; Lines per Beat
-.tpl:		resb 1			; Ticks per Line
-;.tps:		resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
-.size:
-ENDSTRUC
-
-STRUC PlayerState
-.data:		resw 1			; Data Offset
-.seqAddr:	resw 1			; Sequence Address
-.seqPos:	resw 1			; Sequence Position
-.patAddr:	resw 1			; Pattern Address
-.patPos:	resw 1			; Pattern Position (Line)
-.lineTick:	resb 1			; Line Tick
-.channels:	resb 1			; Total Number of Channels
-.size:
-ENDSTRUC
-
-STRUC PlayerChannel
-.note:		resb 1			; Note
-.instr:		resb 1			; Instrument
-.vol:		resb 1			; Volume
-.hold:		resb 1			; Hold (how long since the note was last changed)
-;FX go here
-.size:
-ENDSTRUC
-; ----------------------------------------------------------------------------------------------- ;
-; ----------------------------------------------------------------------------------------------- ;
-playerGlobal:
-	db PlayerGlobal.size
-; ----------------------------------------------------------------------------------------------- ;
-player0:
-	db PlayerState.size
-player0channel0:
-	db PlayerChannel.size
-	db PlayerChannel.size
 ; ----------------------------------------------------------------------------------------------- ;
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -289,7 +314,7 @@ audio_playMusic:
 	push ds
 	push es
 
-;	SONG_DECODE state0, ax
+	SONG_DECODE player0, ax
 ;	SONG_DECODE_PAT state0
 
 	; restore DS, ES and return
@@ -388,4 +413,25 @@ section .bss
 ; ----------------------------------------------------------------------------------------------- ;
 old_interrupt:
 	resb 4
+; ----------------------------------------------------------------------------------------------- ;
+playerGlobal:
+	resb PlayerGlobal.size
+; ----------------------------------------------------------------------------------------------- ;
+player0:
+	resb PlayerState.size
+player0channel0:
+	resb PlayerChannel.size
+	resb PlayerChannel.size
+; ----------------------------------------------------------------------------------------------- ;
+player1:
+	resb PlayerState.size
+player1channel0:
+	resb PlayerChannel.size
+	resb PlayerChannel.size
+; ----------------------------------------------------------------------------------------------- ;
+player2:
+	resb PlayerState.size
+player2channel0:
+	resb PlayerChannel.size
+	resb PlayerChannel.size
 ; ----------------------------------------------------------------------------------------------- ;
