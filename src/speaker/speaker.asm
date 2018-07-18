@@ -98,80 +98,6 @@ jump_table:
 
 
 ; ----------------------------------------------------------------------------------------------- ;
-; Used to initialize the sound interface
-audio_init:
-	; store DS and ES
-	push ds
-	push es
-
-	; read the original timer interrupt
-	mov ax, 0
-	mov ds, ax
-	mov ax, [ds:(1Ch*4)+0]
-	mov bx, ax
-	mov ax, [ds:(1Ch*4)+2]
-	mov cx, ax
-	; from here on, use CS as the address of DS
-	mov ax, cs
-	mov ds, ax
-	; store the original timer interrupt
-	mov [old_interrupt+0], bx
-	mov [old_interrupt+2], cx
-
-	; switch to our custom timer interrupt
-	cli
-	mov ax, 0
-	mov es, ax
-	mov ax, audio_interrupt
-	mov [es:(1Ch*4)+0], ax
-	mov ax, cs
-	mov [es:(1Ch*4)+2], ax
-	sti
-
-	; Configure PIT2 to modulate a square wave
-	SPEAKER_PIT2_INIT
-
-	mov ax, 4444
-	SPEAKER_PIT2_FREQ
-	SPEAKER_ON
-
-	; restore DS, ES and return
-	pop es
-	pop ds
-	retf
-
-; ----------------------------------------------------------------------------------------------- ;
-; Used to shutdown the sound interface
-audio_uninit:
-	; store DS and use CS as the address of DS
-	push ds
-	push es
-	mov ax, cs
-	mov ds, ax
-
-	; restore the original timer interrupt
-	cli
-	mov ax, 0
-	mov es, ax
-	mov ax, [old_interrupt+0]
-	mov [es:(1Ch*4)+0], ax
-	mov ax, [old_interrupt+2]
-	mov [es:(1Ch*4)+2], ax
-	sti
-
-	; Set frequency back to default (0, aka 65536)
-	mov ax, 0
-	SPEAKER_PIT0_FREQ
-
-	; turn off the speaker
-	SPEAKER_OFF
-
-	; restore DS, ES and return
-	pop es
-	pop ds
-	retf
-
-; ----------------------------------------------------------------------------------------------- ;
 STRUC SongHeader
 .chunk:		resw 1
 .beats:		resw 1
@@ -266,6 +192,7 @@ ENDSTRUC
 	and word ax, 0FFFh
 	mov word bx, dx
 	shr word bx, 12
+	inc word bx
 	mov word [di+PlayerGlobal.bpm], ax
 	mov byte [di+PlayerGlobal.lpb], bl
 	mov byte [di+PlayerGlobal.tpl], 6
@@ -276,7 +203,8 @@ ENDSTRUC
 	mov word [di+PlayerState.dataAddr], si
 	add si, cx			; next chunk
 	mov word cx, [si+SongSequence.chunk]
-	mov word bx, [si+SongSequence.data]
+	mov word bx, si
+	add word bx, SongSequence.data
 	mov word [di+PlayerState.seqAddr], si
 	mov word [di+PlayerState.seqPos], 0
 	add si, cx			; next chunk
@@ -311,6 +239,84 @@ ENDSTRUC
 %endmacro
 
 ; ----------------------------------------------------------------------------------------------- ;
+; Used to initialize the sound interface
+audio_init:
+	; store DS and ES
+	push ds
+	push es
+
+	; read the original timer interrupt
+	mov ax, 0
+	mov ds, ax
+	mov ax, [ds:(1Ch*4)+0]
+	mov bx, ax
+	mov ax, [ds:(1Ch*4)+2]
+	mov cx, ax
+	; from here on, use CS as the address of DS
+	mov ax, cs
+	mov ds, ax
+	; store the original timer interrupt
+	mov [old_interrupt+0], bx
+	mov [old_interrupt+2], cx
+
+	; switch to our custom timer interrupt
+	cli
+	mov ax, 0
+	mov es, ax
+	mov ax, audio_interrupt
+	mov [es:(1Ch*4)+0], ax
+	mov ax, cs
+	mov [es:(1Ch*4)+2], ax
+	sti
+
+	; Configure PIT2 to modulate a square wave
+	SPEAKER_PIT2_INIT
+
+	mov ax, 4444
+	SPEAKER_PIT2_FREQ
+	SPEAKER_ON
+
+	SONG_DECODE playerGlobal, empty_song
+	SONG_CHANNEL_RESET player0channel0
+	SONG_CHANNEL_RESET player0channel1
+
+	; restore DS, ES and return
+	pop es
+	pop ds
+	retf
+
+; ----------------------------------------------------------------------------------------------- ;
+; Used to shutdown the sound interface
+audio_uninit:
+	; store DS and use CS as the address of DS
+	push ds
+	push es
+	mov ax, cs
+	mov ds, ax
+
+	; restore the original timer interrupt
+	cli
+	mov ax, 0
+	mov es, ax
+	mov ax, [old_interrupt+0]
+	mov [es:(1Ch*4)+0], ax
+	mov ax, [old_interrupt+2]
+	mov [es:(1Ch*4)+2], ax
+	sti
+
+	; Set frequency back to default (0, aka 65536)
+	mov ax, 0
+	SPEAKER_PIT0_FREQ
+
+	; turn off the speaker
+	SPEAKER_OFF
+
+	; restore DS, ES and return
+	pop es
+	pop ds
+	retf
+
+; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
 audio_interrupt:
 	push ax
@@ -338,7 +344,7 @@ audio_playMusic:
 	push ds
 	push es
 
-	SONG_DECODE player0, ax
+	SONG_DECODE playerGlobal, ax
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
 
