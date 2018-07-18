@@ -298,12 +298,16 @@ ENDSTRUC
 	mov word [di+PlayerState.patPos], 0
 	mov word [di+PlayerState.lineTick], 0
 	mov word [di+PlayerState.channels], 2
-	
 %endmacro
 
 
+; @param %1 DEST: state base address
 %macro SONG_CHANNEL_RESET 1
-
+	mov word di, %1
+	mov byte [di+PlayerChannel.note], 07Fh
+	mov byte [di+PlayerChannel.instr], 0
+	mov byte [di+PlayerChannel.vol], 0
+	mov byte [di+PlayerChannel.hold], 0	
 %endmacro
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -335,7 +339,8 @@ audio_playMusic:
 	push es
 
 	SONG_DECODE player0, ax
-;	SONG_DECODE_PAT state0
+	SONG_CHANNEL_RESET player0channel0
+	SONG_CHANNEL_RESET player0channel1
 
 	; restore DS, ES and return
 	pop es
