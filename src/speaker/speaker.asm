@@ -115,23 +115,20 @@ STRUC SongPattern
 .data:
 ENDSTRUC
 ; ----------------------------------------------------------------------------------------------- ;
-STRUC PlayerGlobal
-.bpm:		resw 1			; Beats per Minute
-.lpb:		resb 1			; Lines per Beat
-.tpl:		resb 1			; Ticks per Line
-;.tps:		resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
-.channels:	resb 1			; How many Channels to decode
-.size:
-ENDSTRUC
-
 STRUC PlayerState
-.dataAddr:	resw 1			; Data Address
-.seqAddr:	resw 1			; Sequence Address
-.seqPos:	resw 1			; Sequence Position
-.patAddr:	resw 1			; Pattern Address
-.patPos:	resw 1			; Pattern Position (Line)
-.lineTick:	resb 1			; Line Tick
-.channels:	resb 1			; Total Number of Channels
+.bpm:			resw 1			; Beats per Minute
+.lpb:			resb 1			; Lines per Beat
+.tpl:			resb 1			; Ticks per Line
+;.tps:			resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
+.maxChannels:	resb 1			; How many Channels to decode
+.padding:   	resb 1			
+.dataAddr:		resw 1			; Data Address
+.seqAddr:		resw 1			; Sequence Address
+.seqPos:		resw 1			; Sequence Position
+.patAddr:		resw 1			; Pattern Address
+.patPos:		resw 1			; Pattern Position (Line)
+.lineTick:		resb 1			; Line Tick
+.channels:		resb 1			; Total Number of Channels
 .size:
 ENDSTRUC
 
@@ -180,11 +177,13 @@ ENDSTRUC
 ;	mov word [di], ax	; State.pat = Pattern CX's address
 ;%endmacro
 ; ----------------------------------------------------------------------------------------------- ;
+
+; ----------------------------------------------------------------------------------------------- ;
 ; @param %1 DEST: state base address
 ; @param %2 SRC: address
 %macro SONG_DECODE 2
-	; PlayerGlobal
-	mov word di, %1+0
+	; PlayerState
+	mov word di, %1
 	mov word si, %2
 	mov word cx, [si+SongHeader.chunk]
 	mov word dx, [si+SongHeader.beats]
@@ -193,13 +192,11 @@ ENDSTRUC
 	mov word bx, dx
 	shr word bx, 12
 	inc word bx
-	mov word [di+PlayerGlobal.bpm], ax
-	mov byte [di+PlayerGlobal.lpb], bl
-	mov byte [di+PlayerGlobal.tpl], 6
-	mov byte [di+PlayerGlobal.channels], 2
+	mov word [di+PlayerState.bpm], ax
+	mov byte [di+PlayerState.lpb], bl
+	mov byte [di+PlayerState.tpl], 6
+	mov byte [di+PlayerState.maxChannels], 2
 
-	; PlayerState
-	mov word di, %1+PlayerGlobal.size
 	mov word [di+PlayerState.dataAddr], si
 	add si, cx			; next chunk
 	mov word cx, [si+SongSequence.chunk]
@@ -224,7 +221,7 @@ ENDSTRUC
 %%done:	
 	mov word [di+PlayerState.patAddr], si
 	mov word [di+PlayerState.patPos], 0
-	mov word [di+PlayerState.lineTick], 0
+	mov word [di+PlayerState.lineTick], 6
 	mov word [di+PlayerState.channels], 2
 %endmacro
 
@@ -236,6 +233,20 @@ ENDSTRUC
 	mov byte [di+PlayerChannel.instr], 0
 	mov byte [di+PlayerChannel.vol], 0
 	mov byte [di+PlayerChannel.hold], 0	
+%endmacro
+
+
+%macro SONG_STEP 1
+	mov word si, %1
+	mov word di, %1
+	
+	dec byte [di+PlayerState.lineTick]
+	jnz %%next
+%%do_step:
+	mov byte al, [si+PlayerState.tpl]
+%%next:
+
+
 %endmacro
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -276,7 +287,7 @@ audio_init:
 	SPEAKER_PIT2_FREQ
 	SPEAKER_ON
 
-	SONG_DECODE playerGlobal, empty_song
+	SONG_DECODE player0, empty_song
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
 
@@ -344,7 +355,7 @@ audio_playMusic:
 	push ds
 	push es
 
-	SONG_DECODE playerGlobal, ax
+	SONG_DECODE player0, ax
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
 
@@ -444,9 +455,6 @@ section .bss
 ; ----------------------------------------------------------------------------------------------- ;
 old_interrupt:
 	resb 4
-; ----------------------------------------------------------------------------------------------- ;
-playerGlobal:
-	resb PlayerGlobal.size
 ; ----------------------------------------------------------------------------------------------- ;
 player0:
 	resb PlayerState.size
