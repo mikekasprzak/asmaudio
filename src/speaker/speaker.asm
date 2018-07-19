@@ -124,6 +124,7 @@ STRUC PlayerState
 .padding:   	resb 1			
 .dataAddr:		resw 1			; Data Address
 .seqAddr:		resw 1			; Sequence Address
+.seqLength:		resw 1			; Sequence Length
 .seqPos:		resw 1			; Sequence Position
 .patStartAddr:	resw 1			; Pattern Start Address
 .patAddr:		resw 1			; Pattern Address
@@ -205,6 +206,10 @@ ENDSTRUC
 	mov word bx, si
 	add word bx, SongSequence.data
 	mov word [di+PlayerState.seqAddr], si
+	mov word ax, cx
+	shr word ax, 1
+	dec ax
+	mov word [di+PlayerState.seqLength], ax
 	mov word [di+PlayerState.seqPos], 0
 	add si, cx			; next chunk
 
@@ -253,7 +258,7 @@ ENDSTRUC
 	
 	; Step the line tick
 	dec byte [di+PlayerState.lineTick]
-	; jump if we've exhausted our ticks
+	; jump if we haven't exhausted our ticks
 	jnz %%step_done
 %%step_line:
 	; Tick has finished a line, so reset the tick
@@ -262,15 +267,27 @@ ENDSTRUC
 	
 	; Step the line
 	inc word [di+PlayerState.patPos]
-	; jump if we've exhausted the pattern
+	; jump if we haven't exhausted the pattern
 	mov ax, [si+PlayerState.patLength]
 	cmp word [di+PlayerState.patPos], ax
 	jnz %%step_done
 
-%%step_patttern:
-	; reset to top
+%%step_pattern:
+	; reset pattern posotion to top
 	mov word [di+PlayerState.patPos], 0
+
+	; Step the sequence
+	inc word [di+PlayerState.seqPos]
 	
+	; jump if we haven't exhausted the sequence
+	mov ax, [si+PlayerState.seqLength]
+	cmp word [di+PlayerState.seqPos], ax
+	jnz %%decode_pattern
+
+%%step_sequence:	
+	; todo: store the result of the pattern lookup
+
+%%decode_pattern:	
 %%step_done:
 
 
