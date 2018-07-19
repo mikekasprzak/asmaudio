@@ -125,7 +125,9 @@ STRUC PlayerState
 .dataAddr:		resw 1			; Data Address
 .seqAddr:		resw 1			; Sequence Address
 .seqPos:		resw 1			; Sequence Position
+.patStartAddr:	resw 1			; Pattern Start Address
 .patAddr:		resw 1			; Pattern Address
+.patLength:		resw 1			; Pattern Length
 .patPos:		resw 1			; Pattern Position (Line)
 .lineTick:		resb 1			; Line Tick
 .channels:		resb 1			; Total Number of Channels
@@ -205,6 +207,8 @@ ENDSTRUC
 	mov word [di+PlayerState.seqAddr], si
 	mov word [di+PlayerState.seqPos], 0
 	add si, cx			; next chunk
+
+	mov word [di+PlayerState.patStartAddr], si
 	
 	mov word dx, [bx]
 	; check if we're already at the beginning
@@ -220,9 +224,16 @@ ENDSTRUC
 
 %%done:	
 	mov word [di+PlayerState.patAddr], si
+	mov word ax, [si+SongPattern.width]
+	mov word bx, ax
+	and word ax, 03FFh
+	mov word [di+PlayerState.patLength], ax
 	mov word [di+PlayerState.patPos], 0
 	mov word [di+PlayerState.lineTick], 6
-	mov word [di+PlayerState.channels], 2
+	mov word ax, bx
+	shr byte ah, 2	; Instead of shifting by 10, shift by 2 and use the high bit
+	and byte ah, 0Fh
+	mov byte [di+PlayerState.channels], ah
 %endmacro
 
 
@@ -240,11 +251,27 @@ ENDSTRUC
 	mov word si, %1
 	mov word di, %1
 	
+	; Step the line tick
 	dec byte [di+PlayerState.lineTick]
-	jnz %%next
-%%do_step:
+	; jump if we've exhausted our ticks
+	jnz %%step_done
+%%step_line:
+	; Tick has finished a line, so reset the tick
 	mov byte al, [si+PlayerState.tpl]
-%%next:
+	mov byte [di+PlayerState.lineTick], al
+	
+	; Step the line
+	inc word [di+PlayerState.patPos]
+	; jump if we've exhausted the pattern
+	mov ax, [si+PlayerState.patLength]
+	cmp word [di+PlayerState.patPos], ax
+	jnz %%step_done
+
+%%step_patttern:
+	; reset to top
+	mov word [di+PlayerState.patPos], 0
+	
+%%step_done:
 
 
 %endmacro
