@@ -130,8 +130,9 @@ STRUC PlayerState
 .patAddr:		resw 1			; Pattern Address
 .patLength:		resw 1			; Pattern Length
 .patPos:		resw 1			; Pattern Position (Line)
-.lineTick:		resb 1			; Line Tick
+.tick:			resb 1			; (Line) Tick
 .channels:		resb 1			; Total Number of Channels
+.channelWidth	resb 1			; Width of a channel
 .size:
 ENDSTRUC
 
@@ -235,12 +236,16 @@ ENDSTRUC
 	inc word ax
 	mov word [di+PlayerState.patLength], ax
 	mov word [di+PlayerState.patPos], 0
-	mov word [di+PlayerState.lineTick], 6
+	mov word [di+PlayerState.tick], 6
 	mov word ax, bx
 	shr byte ah, 2	; Instead of shifting by 10, shift by 2 and use the high bit
 	and byte ah, 0Fh
 	inc byte ah
 	mov byte [di+PlayerState.channels], ah
+	mov byte ah, bh
+	shr byte ah, 6
+	inc byte ah
+	mov byte [di+PlayerState.channelWidth], ah
 %endmacro
 
 
@@ -258,38 +263,59 @@ ENDSTRUC
 	mov word si, %1
 	mov word di, %1
 	
-	; Step the line tick
-	dec byte [di+PlayerState.lineTick]
+	; Step the tick
+	dec byte [di+PlayerState.tick]
 	; jump if we haven't exhausted our ticks
 	jnz %%step_done
+
+	; TICK EXHAUSTED, STEP THE LINE
 %%step_line:
-	; Tick has finished a line, so reset the tick
+	; Since tick has finished, reset the tick
 	mov byte al, [si+PlayerState.tpl]
-	mov byte [di+PlayerState.lineTick], al
+	mov byte [di+PlayerState.tick], al
 	
-	; Step the line
+	; Step the pattern position
 	inc word [di+PlayerState.patPos]
-	; jump if we haven't exhausted the pattern
+	; jump to decode if we haven't exhausted the pattern
 	mov ax, [si+PlayerState.patLength]
 	cmp word [di+PlayerState.patPos], ax
-	jnz %%step_done
+	jnz %%decode_line
 
+	; LINE EXHAUSTED, STEP THE PATTERN
 %%step_pattern:
-	; reset pattern posotion to top
+	; reset pattern position to top
 	mov word [di+PlayerState.patPos], 0
 
 	; Step the sequence
 	inc word [di+PlayerState.seqPos]
 	
-	; jump if we haven't exhausted the sequence
+	; jump to decode if we haven't exhausted the sequence
 	mov ax, [si+PlayerState.seqLength]
 	cmp word [di+PlayerState.seqPos], ax
 	jnz %%decode_pattern
 
+	; PATTERN EXHAUSTED, STEP THE SEQUENCE
 %%step_sequence:	
-	; todo: store the result of the pattern lookup
+	; HACK: Restart pattern
+	cmp word [di+PlayerState.seqPos], 0
+		
+	; DECODE THE PATTERN
+%%decode_pattern:
+	; TODO: decode pattern
 
-%%decode_pattern:	
+	; DECODE THE LINE
+%%decode_line:
+	; Limit the number of channels we decode to the maxChannels
+%%clamp_channels:
+	mov ah, [si+PlayerState.channels]
+	cmp [di+PlayerState.maxChannels], ah
+	jle %%clamp_channels_next
+	mov ah, [si+PlayerState.maxChannels]
+%%clamp_channels_next:
+	mov al, [si+PlayerState.channelWidth]
+	mul ah			; ax = al * %1
+	mov bx, ax
+	
 %%step_done:
 
 
@@ -405,6 +431,10 @@ audio_playMusic:
 	SONG_DECODE player0, ax
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
+	
+	; Set PIT frequency to 1MHz / BPM*LPB*TPL
+	;mov ax, 0
+	;SPEAKER_PIT0_FREQ
 
 	; restore DS, ES and return
 	pop es
