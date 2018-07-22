@@ -4,10 +4,10 @@ org 0h							; org 0 because we are not a program and we only care about ourselv
 ; ----------------------------------------------------------------------------------------------- ;
 section .text
 ; ----------------------------------------------------------------------------------------------- ;
-; Jump Table - "origin+4"
+; Jump Table - begins at "origin+4"
 jump_table:
 	; function 0
-	ret							; just returns (which makes running us do nothing)
+	ret							; just returns (which makes running us as a .com file do nothing)
 	nop
 	nop
 	nop
@@ -99,19 +99,19 @@ jump_table:
 
 ; ----------------------------------------------------------------------------------------------- ;
 STRUC SongHeader
-.chunk:		resw 1
-.beats:		resw 1
+.chunk:			resw 1
+.beats:			resw 1
 .data:
 ENDSTRUC
 
 STRUC SongSequence
-.chunk:		resw 1
+.chunk:			resw 1
 .data:
 ENDSTRUC
 
 STRUC SongPattern
-.chunk:		resw 1
-.width:		resw 1
+.chunk:			resw 1
+.heightWidth:	resw 1
 .data:
 ENDSTRUC
 ; ----------------------------------------------------------------------------------------------- ;
@@ -136,10 +136,10 @@ STRUC PlayerState
 ENDSTRUC
 
 STRUC PlayerChannel
-.note:		resb 1			; Note
-.instr:		resb 1			; Instrument
-.vol:		resb 1			; Volume
-.hold:		resb 1			; Hold (how long since the note was last changed)
+.note:			resb 1			; Note
+.instr:			resb 1			; Instrument
+.vol:			resb 1			; Volume
+.hold:			resb 1			; Hold (how long since the note was last changed)
 ;FX go here
 .size:
 ENDSTRUC
@@ -229,15 +229,17 @@ ENDSTRUC
 
 %%done:	
 	mov word [di+PlayerState.patAddr], si
-	mov word ax, [si+SongPattern.width]
-	mov word bx, ax
+	mov word bx, [si+SongPattern.heightWidth]
+	mov word ax, bx
 	and word ax, 03FFh
+	inc word ax
 	mov word [di+PlayerState.patLength], ax
 	mov word [di+PlayerState.patPos], 0
 	mov word [di+PlayerState.lineTick], 6
 	mov word ax, bx
 	shr byte ah, 2	; Instead of shifting by 10, shift by 2 and use the high bit
 	and byte ah, 0Fh
+	inc byte ah
 	mov byte [di+PlayerState.channels], ah
 %endmacro
 
@@ -300,6 +302,11 @@ audio_init:
 	push ds
 	push es
 
+	; setup player
+	SONG_DECODE player0, empty_song
+	SONG_CHANNEL_RESET player0channel0
+	SONG_CHANNEL_RESET player0channel1
+
 	; read the original timer interrupt
 	mov ax, 0
 	mov ds, ax
@@ -330,10 +337,6 @@ audio_init:
 	mov ax, 4444
 	SPEAKER_PIT2_FREQ
 	SPEAKER_ON
-
-	SONG_DECODE player0, empty_song
-	SONG_CHANNEL_RESET player0channel0
-	SONG_CHANNEL_RESET player0channel1
 
 	; restore DS, ES and return
 	pop es
