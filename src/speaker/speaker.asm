@@ -266,7 +266,7 @@ ENDSTRUC
 	; Step the tick
 	dec byte [di+PlayerState.tick]
 	; jump if we haven't exhausted our ticks
-	jnz %%step_done
+	jnz %%step_almost_done
 
 	; TICK EXHAUSTED, STEP THE LINE
 %%step_line:
@@ -313,9 +313,31 @@ ENDSTRUC
 	mov ah, [si+PlayerState.maxChannels]
 %%clamp_channels_next:
 	mov al, [si+PlayerState.channelWidth]
-	mul ah			; ax = al * %1
-	mov bx, ax
+	mul ah								; ax = al * %1
+	mov bl, al							; bl: channels to render
+	mov bh, [si+PlayerState.channels]	; bh: number of channels per line
+
+	mov al, PlayerChannel.size
+	mul bh
+	mov cl, al							; cl: bytes per line
+	mov ch, 0
+
+	mov ax, [si+PlayerState.patPos]
+	mul cx								; dx:ax = ax * %1
+	mov dx, ax							; dx: byte offset to current line
 	
+	;mov ch, PlayerChannel.size			; ch: bytes per channel
+	
+	; Write to channels!
+	mov si, [si+PlayerState.patAddr]
+	add si, dx
+	mov di, %1+PlayerState.size
+	
+;	mov al, [si+0]
+	
+
+%%step_almost_done:
+;	mov di, %1+PlayState.size
 %%step_done:
 
 
