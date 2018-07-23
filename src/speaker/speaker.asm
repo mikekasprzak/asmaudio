@@ -125,12 +125,12 @@ STRUC PlayerState
 .dataAddr:		resw 1			; Data Address
 .seqAddr:		resw 1			; Sequence Address
 .seqLength:		resw 1			; Sequence Length
-.seqPos:		resw 1			; Sequence Position
+.seqPos:		resw 1			; * Sequence Position
 .patStartAddr:	resw 1			; Pattern Start Address
-.patAddr:		resw 1			; Pattern Address
-.patLength:		resw 1			; Pattern Length
-.patPos:		resw 1			; Pattern Position (Line)
-.tick:			resb 1			; (Line) Tick
+.patAddr:		resw 1			; * Pattern Address
+.patLength:		resw 1			; * Pattern Length
+.patPos:		resw 1			; * Pattern Position (Line)
+.tick:			resb 1			; * Tick (Line sub-samples)
 .channels:		resb 1			; Total number of channels in song
 .channelLimit:	resb 1			; Total number of channels to decode, limited by the channel max
 .channelWidth:	resb 1			; Width of a channel
@@ -138,10 +138,10 @@ STRUC PlayerState
 ENDSTRUC
 
 STRUC PlayerChannel
-.note:			resb 1			; Note
-.instr:			resb 1			; Instrument
-.vol:			resb 1			; Volume
-.hold:			resb 1			; Hold (how long since the note was last changed)
+.note:			resb 1			; * Note
+.instr:			resb 1			; * Instrument
+.vol:			resb 1			; * Volume
+.hold:			resb 1			; * Hold (how long since the note was last changed)
 ;FX go here
 .size:
 ENDSTRUC
@@ -274,13 +274,13 @@ ENDSTRUC
 
 
 %macro SONG_STEP 1
-	mov word si, %1
-	mov word di, %1
+	mov word si, %1								; PlayerState
+	mov word di, %1								; PlayerState
 
 	; Step the tick
 	dec byte [di+PlayerState.tick]
 	; jump if we haven't exhausted our ticks
-	jnz %%step_almost_done
+	jnz %%step_done
 
 	; TICK EXHAUSTED, STEP THE PATTERN (LINE)
 %%step_pattern:
@@ -293,7 +293,7 @@ ENDSTRUC
 	; jump to decode if we haven't exhausted the pattern
 	mov ax, [si+PlayerState.patLength]
 	cmp word [di+PlayerState.patPos], ax
-	jnz %%decode_line
+	jnz %%step_done
 
 	; PATTERN EXHAUSTED, STEP THE SEQUENCE
 %%step_sequence:
@@ -309,19 +309,18 @@ ENDSTRUC
 	jnz %%decode_sequence
 
 	; SEQUENCE EXHAUSTED, LOOP THE SONG
-%%step_song:
+%%loop_sequence:
 	; loop the song... for now go back to zero
 	mov word [di+PlayerState.seqPos], 0
 
 	; DECODE THE SEQUENCE
 %%decode_sequence:
-	push si
-	mov ax, [si+PlayerState.seqPos]
-	shl ax, 1
-	add ax, [si+PlayerState.seqAddr]
-	mov dx, [ax]
+	mov bx, [si+PlayerState.seqPos]
+	shl bx, 1
+	add bx, [si+PlayerState.seqAddr]
+	mov dx, [bx]								; dx: Pattern Number = seqAddr + (seqPos << 1)
 
-	mov si, [si+PlayerState.patStartAddr]
+	mov si, [si+PlayerState.patStartAddr]		; si: Pattern Start Address
 
 	; check if we're already at the beginning
 	cmp dx, 0
@@ -332,48 +331,80 @@ ENDSTRUC
 	mov word cx, [si+SongPattern.chunk]
 	add si, cx
 	dec dx
-	jnz %%loop
+	jnz %%decode_sequence_loop
 %%decode_sequence_done:
 	mov word [di+PlayerState.patAddr], si
-	pop si
 
-	; DECODE THE PATTERN
-%%decode_pattern:
-	; Limit the number of channels we decode to the maxChannels
-%%clamp_channels:
-	mov ah, [si+PlayerState.channels]
-	cmp [di+PlayerState.maxChannels], ah
-	jle %%clamp_channels_next
-	mov ah, [si+PlayerState.maxChannels]
-%%clamp_channels_next:
-	mov al, [si+PlayerState.channelWidth]
-	mul ah								; ax = al * %1
-	mov bl, al							; bl: channels to render
-	mov bh, [si+PlayerState.channels]	; bh: number of channels per line
-
-	mov al, PlayerChannel.size
-	mul bh
-	mov cl, al							; cl: bytes per line
-	mov ch, 0
-
-	mov ax, [si+PlayerState.patPos]
-	mul cx								; dx:ax = ax * %1
-	mov dx, ax							; dx: byte offset to current line
-
-	;mov ch, PlayerChannel.size			; ch: bytes per channel
-
-	; Write to channels!
-	mov si, [si+PlayerState.patAddr]
-	add si, dx
-	mov di, %1+PlayerState.size
-
-;	mov al, [si+0]
-
-
-%%step_almost_done:
-;	mov di, %1+PlayState.size
+	; Decode the Height+Width section
+	mov word bx, [si+SongPattern.heightWidth]	; bx: Height+Width... i.e. Height+Channels+ChannelWidth
+	mov word ax, bx
+	and word ax, 03FFh
+	inc word ax
+	mov word [di+PlayerState.patLength], ax		; Height (12 bits)
+	mov word [di+PlayerState.patPos], 0			; Position (start at zero)
+	mov word [di+PlayerState.tick], 6			; Tick (start at TickPerLine)
+	mov word ax, bx
+	shr byte ah, 2								; Instead of shifting by 10, shift the high-bit by 2 and use it
+	and byte ah, 0Fh
+	inc byte ah
+	mov byte [di+PlayerState.channels], ah		; Channels (4 bit) = channels + 1, i.e. max 16 (min 1)
+	cmp byte ah, 2								; 2 = Max Channels
+	jle %%limit
+	mov byte ah, 2
+%%limit:
+	mov byte [di+PlayerState.channelLimit], ah	; The pre-clamped channel limit
+	mov byte ah, bh
+	shr byte ah, 6
+	inc byte ah
+	mov byte [di+PlayerState.channelWidth], ah	; Width of each channel = channelWidth + 1, i.e. max 4 (min 1)
 %%step_done:
+%endmacro
 
+
+
+
+;	; DECODE THE PATTERN
+;%%decode_pattern:;
+;
+;
+;
+;	; Limit the number of channels we decode to the maxChannels
+;%%clamp_channels:
+;	mov ah, [si+PlayerState.channels]
+;	cmp [di+PlayerState.maxChannels], ah
+;	jle %%clamp_channels_next
+;	mov ah, [si+PlayerState.maxChannels]
+;%%clamp_channels_next:
+;	mov al, [si+PlayerState.channelWidth]
+;	mul ah								; ax = al * %1
+;	mov bl, al							; bl: channels to render
+;	mov bh, [si+PlayerState.channels]	; bh: number of channels per line
+;
+;	mov al, PlayerChannel.size
+;	mul bh
+;	mov cl, al							; cl: bytes per line
+;	mov ch, 0
+;
+;	mov ax, [si+PlayerState.patPos]
+;	mul cx								; dx:ax = ax * %1
+;	mov dx, ax							; dx: byte offset to current line
+;
+;	;mov ch, PlayerChannel.size			; ch: bytes per channel
+;
+;	; Write to channels!
+;	mov si, [si+PlayerState.patAddr]
+;	add si, dx
+;	mov di, %1+PlayerState.size
+;
+;;	mov al, [si+0]
+;
+;
+;%%step_almost_done:
+;;	mov di, %1+PlayState.size
+
+%macro SONG_DECODE_PATTERN 1
+	mov word si, %1								; PlayerState
+	mov word di, %1								; PlayerState
 
 %endmacro
 
@@ -457,27 +488,6 @@ audio_uninit:
 	retf
 
 ; ----------------------------------------------------------------------------------------------- ;
-; Never called directly, but ticked many times per second for music playback
-audio_interrupt:
-	push ax
-
-	;SPEAKER_TOGGLE
-
-	pop ax
-	iret
-; ----------------------------------------------------------------------------------------------- ;
-
-; ----------------------------------------------------------------------------------------------- ;
-;_currentStep:		; Sub-steps of a Pattern
-;	dw 0
-; ----------------------------------------------------------------------------------------------- ;
-;_currentBPM:
-;	dw 0
-; ----------------------------------------------------------------------------------------------- ;
-
-
-
-; ----------------------------------------------------------------------------------------------- ;
 ; @param ax address of song to play
 audio_playMusic:
 	; store DS, ES
@@ -538,6 +548,33 @@ audio_resumeSound:
 	retf
 
 
+; ----------------------------------------------------------------------------------------------- ;
+; Never called directly, but ticked many times per second for music playback
+audio_interrupt:
+	push ax
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+	push ds
+
+	mov ax, cs
+	mov ds, ax
+
+	SONG_STEP player0
+
+	;SPEAKER_TOGGLE
+
+	pop ds
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	iret
+; ----------------------------------------------------------------------------------------------- ;
 
 ; ----------------------------------------------------------------------------------------------- ;
 ; Initialized Data
