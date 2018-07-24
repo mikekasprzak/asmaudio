@@ -271,7 +271,7 @@ ENDSTRUC
 	mov byte [di+PlayerState.bytesPerLine], al	; Number of bytes per line
 %endmacro
 
-
+; ----------------------------------------------------------------------------------------------- ;
 ; @param %1 DEST: state base address
 %macro SONG_CHANNEL_RESET 1
 	mov word di, %1
@@ -281,6 +281,7 @@ ENDSTRUC
 	mov byte [di+PlayerChannel.hold], 0
 %endmacro
 
+; ----------------------------------------------------------------------------------------------- ;
 ; @param %1 SRC: state base address
 %macro SONG_STEP 1
 	mov word si, %1								; PlayerState
@@ -373,48 +374,7 @@ ENDSTRUC
 %%step_done:
 %endmacro
 
-
-
-
-;	; DECODE THE PATTERN
-;%%decode_pattern:;
-;
-;
-;
-;	; Limit the number of channels we decode to the maxChannels
-;%%clamp_channels:
-;	mov ah, [si+PlayerState.channels]
-;	cmp [di+PlayerState.maxChannels], ah
-;	jle %%clamp_channels_next
-;	mov ah, [si+PlayerState.maxChannels]
-;%%clamp_channels_next:
-;	mov al, [si+PlayerState.channelWidth]
-;	mul ah								; ax = al * %1
-;	mov bl, al							; bl: channels to render
-;	mov bh, [si+PlayerState.channels]	; bh: number of channels per line
-;
-;	mov al, PlayerChannel.size
-;	mul bh
-;	mov cl, al							; cl: bytes per line
-;	mov ch, 0
-;
-;	mov ax, [si+PlayerState.patPos]
-;	mul cx								; dx:ax = ax * %1
-;	mov dx, ax							; dx: byte offset to current line
-;
-;	;mov ch, PlayerChannel.size			; ch: bytes per channel
-;
-;	; Write to channels!
-;	mov si, [si+PlayerState.patAddr]
-;	add si, dx
-;	mov di, %1+PlayerState.size
-;
-;;	mov al, [si+0]
-;
-;
-;%%step_almost_done:
-;;	mov di, %1+PlayState.size
-
+; ----------------------------------------------------------------------------------------------- ;
 %macro SONG_DECODE_PATTERN 1
 	mov word si, %1								; PlayerState
 	mov word di, %1								; PlayerState
