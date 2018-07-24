@@ -98,6 +98,10 @@ jump_table:
 
 
 ; ----------------------------------------------------------------------------------------------- ;
+PLAYER_CHANNEL_MAX				equ	2
+PLAYER_TICKS_PER_LINE			equ 6
+PLAYER_NOTE_OFF					equ 07Fh
+; ----------------------------------------------------------------------------------------------- ;
 STRUC SongHeader
 .chunk:			resw 1
 .beats:			resw 1
@@ -188,8 +192,8 @@ ENDSTRUC
 ; @param %1 DEST: state base address
 ; @param %2 SRC: address
 %macro SONG_DECODE 2
-	mov word di, %1								; PlayerState
-	mov word si, %2								; SongHeader
+	mov word di, %1												; PlayerState
+	mov word si, %2												; SongHeader
 
 	; Decode the Beats section
 	mov word dx, [si+SongHeader.beats]
@@ -198,30 +202,30 @@ ENDSTRUC
 	mov word bx, dx
 	shr word bx, 12
 	inc word bx
-	mov word [di+PlayerState.bpm], ax			; Beats per Minute
-	mov byte [di+PlayerState.lpb], bl			; Lines per Beat
-	mov byte [di+PlayerState.tpl], 6			; Ticks per Line
-	mov byte [di+PlayerState.maxChannels], 2	; Maximum Channels (implementation limit)
+	mov word [di+PlayerState.bpm], ax							; Beats per Minute
+	mov byte [di+PlayerState.lpb], bl							; Lines per Beat
+	mov byte [di+PlayerState.tpl], PLAYER_TICKS_PER_LINE		; Ticks per Line
+	mov byte [di+PlayerState.maxChannels], PLAYER_CHANNEL_MAX	; Maximum Channels (implementation limit)
 
 	; Store the Song in the Data Address
 	mov word [di+PlayerState.dataAddr], si
 
 	; Next chunk is the Sequence
-	mov word cx, [si+SongHeader.chunk]			; previous section's chunk size
-	add si, cx									; next chunk (Sequence)
-	mov word cx, [si+SongSequence.chunk]		; cx: Sequence section's chunk size
+	mov word cx, [si+SongHeader.chunk]							; previous section's chunk size
+	add si, cx													; next chunk (Sequence)
+	mov word cx, [si+SongSequence.chunk]						; cx: Sequence section's chunk size
 
-	mov word [di+PlayerState.seqAddr], si		; Sequence Address
+	mov word [di+PlayerState.seqAddr], si						; Sequence Address
 	mov word ax, cx
 	shr word ax, 1
 	dec ax
-	mov word [di+PlayerState.seqLength], ax		; Sequence Length = ((chunksize >> 1) - 1)
-	mov word [di+PlayerState.seqPos], 0			; Sequence Position
+	mov word [di+PlayerState.seqLength], ax						; Sequence Length = ((chunksize >> 1) - 1)
+	mov word [di+PlayerState.seqPos], 0							; Sequence Position
 
-	mov word dx, [si+SongSequence.data]			; dx: Sequence[0]
+	mov word dx, [si+SongSequence.data]							; dx: Sequence[0]
 
 	; Next chunk (and every chunk herein) are Patterns
-	add si, cx									; next chunk (Pattern 0)
+	add si, cx													; next chunk (Pattern 0)
 
 	; Store the 1st Pattern's address
 	mov word [di+PlayerState.patStartAddr], si
@@ -253,9 +257,9 @@ ENDSTRUC
 	inc byte ah
 	mov byte [di+PlayerState.channels], ah		; Channels (4 bit) = channels + 1, i.e. max 16 (min 1)
 	mov byte dh, ah
-	cmp byte ah, 2								; 2 = Max Channels
+	cmp byte ah, PLAYER_CHANNEL_MAX				; 2 = Max Channels
 	jle %%limit
-	mov byte ah, 2
+	mov byte ah, PLAYER_CHANNEL_MAX
 %%limit:
 	mov byte [di+PlayerState.channelLimit], ah	; The pre-clamped channel limit
 	mov byte ah, bh
@@ -271,7 +275,7 @@ ENDSTRUC
 ; @param %1 DEST: state base address
 %macro SONG_CHANNEL_RESET 1
 	mov word di, %1
-	mov byte [di+PlayerChannel.note], 07Fh
+	mov byte [di+PlayerChannel.note], PLAYER_NOTE_OFF
 	mov byte [di+PlayerChannel.instr], 0
 	mov byte [di+PlayerChannel.vol], 0
 	mov byte [di+PlayerChannel.hold], 0
@@ -432,12 +436,6 @@ audio_init:
 	push ds
 	push es
 
-	; setup player
-	SONG_DECODE player0, empty_song
-	SONG_CHANNEL_RESET player0channel0
-	SONG_CHANNEL_RESET player0channel1
-	SONG_DECODE_PATTERN player0
-
 	; read the original timer interrupt
 	mov ax, 0
 	mov ds, ax
@@ -451,6 +449,18 @@ audio_init:
 	; store the original timer interrupt
 	mov [old_interrupt+0], bx
 	mov [old_interrupt+2], cx
+
+	nop
+	nop
+
+	; setup player
+	SONG_DECODE player0, empty_song
+	SONG_CHANNEL_RESET player0channel0
+	SONG_CHANNEL_RESET player0channel1
+	SONG_DECODE_PATTERN player0
+	
+	nop
+	nop
 
 	; switch to our custom timer interrupt
 	cli
@@ -602,9 +612,9 @@ section .data
 ; Placeholder song for when no song is currently set -
 empty_song:
 	; HEADER SECTION
-	dw 2+2										; SECTION SIZE
+	dw 2+4										; SECTION SIZE
 	dw (120<<0) | ((4-1)<<12)					; BeatsPerMinute [12], LinesPerBeat [4]
-	;db ((12-1)<<0)								; TicksPerLine [6], ?? [2]
+	dw 0										; Padding... could be whatever we want
 
 	; ORDER SECTION
 	dw 2+2										; SECTION SIZE
