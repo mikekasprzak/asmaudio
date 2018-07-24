@@ -267,7 +267,7 @@ ENDSTRUC
 	inc byte ah
 	mov byte [di+PlayerState.channelWidth], ah	; Width of each channel = channelWidth + 1, i.e. max 4 (min 1)
 	mov al, ah
-	mul dh
+	mul dh										; ax = al * dh
 	mov byte [di+PlayerState.bytesPerLine], al	; Number of bytes per line
 %endmacro
 
@@ -358,9 +358,9 @@ ENDSTRUC
 	inc byte ah
 	mov byte [di+PlayerState.channels], ah		; Channels (4 bit) = channels + 1, i.e. max 16 (min 1)
 	mov byte dh, ah
-	cmp byte ah, 2								; 2 = Max Channels
+	cmp byte ah, PLAYER_CHANNEL_MAX				; 2 = Max Channels
 	jle %%limit
-	mov byte ah, 2
+	mov byte ah, PLAYER_CHANNEL_MAX
 %%limit:
 	mov byte [di+PlayerState.channelLimit], ah	; The pre-clamped channel limit
 	mov byte ah, bh
