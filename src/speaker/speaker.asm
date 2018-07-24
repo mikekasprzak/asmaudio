@@ -475,11 +475,17 @@ audio_init:
 	SONG_DECODE player0, empty_song
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
-
-	nop
-	nop
-
 	SONG_DECODE_PATTERN player0
+
+	nop
+	nop
+
+bakk:	
+	SONG_STEP player0
+	nop
+	nop
+	SONG_DECODE_PATTERN player0
+	jmp bakk
 	
 	nop
 	nop
@@ -612,7 +618,7 @@ audio_interrupt:
 	mov ax, cs
 	mov ds, ax
 
-	SONG_STEP player0
+;	SONG_STEP player0
 
 	;SPEAKER_TOGGLE
 
