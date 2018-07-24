@@ -419,14 +419,32 @@ ENDSTRUC
 	mov word si, %1								; PlayerState
 	mov word di, %1								; PlayerState
 
+	mov cl, [si+PlayerState.channelLimit]
+	mov ch, [si+PlayerState.channelWidth]
 	mov dh, 0
 	mov dl, [si+PlayerState.bytesPerLine]
 	mov ax, [si+PlayerState.patPos]
 	mul dx										; dx:ax = ax * dx
 	mov bx, ax
-	add bx, [si+PlayerState.patAddr]			; bx: address of line
+	add bx, [si+PlayerState.patAddr]			
+	add bx, SongPattern.data					; bx: address of line
 
-	mov dx, [si+PlayerState.size]				; dx: address of 1st channel
+	add di, PlayerState.size					; di: address of 1st channel
+
+	mov dx, [bx]
+	mov al, dl
+	and al, 07Fh
+	jz %%done
+%%play_note:
+	mov byte [di+PlayerChannel.note], al
+%%next_channel:
+	add di, PlayerChannel.size
+	mov ah, 0
+	mov al, ch
+	add bx, ax
+	dec cl
+	jnz %%play_note
+%%done:
 %endmacro
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -457,6 +475,10 @@ audio_init:
 	SONG_DECODE player0, empty_song
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
+
+	nop
+	nop
+
 	SONG_DECODE_PATTERN player0
 	
 	nop
