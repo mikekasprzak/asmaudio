@@ -131,9 +131,10 @@ STRUC PlayerState
 .patLength:		resw 1			; * Pattern Length
 .patPos:		resw 1			; * Pattern Position (Line)
 .tick:			resb 1			; * Tick (Line sub-samples)
-.channels:		resb 1			; Total number of channels in song
-.channelLimit:	resb 1			; Total number of channels to decode, limited by the channel max
-.channelWidth:	resb 1			; Width of a channel
+.channels:		resb 1			; * Total number of channels in track
+.channelLimit:	resb 1			; * Total number of channels to decode, limited by the channel max
+.channelWidth:	resb 1			; * Width of a channel (bytes)
+.bytesPerLine:	resb 1			; * Total number of bytes per line
 .size:
 ENDSTRUC
 
@@ -251,6 +252,7 @@ ENDSTRUC
 	and byte ah, 0Fh
 	inc byte ah
 	mov byte [di+PlayerState.channels], ah		; Channels (4 bit) = channels + 1, i.e. max 16 (min 1)
+	mov byte dh, ah
 	cmp byte ah, 2								; 2 = Max Channels
 	jle %%limit
 	mov byte ah, 2
@@ -260,6 +262,9 @@ ENDSTRUC
 	shr byte ah, 6
 	inc byte ah
 	mov byte [di+PlayerState.channelWidth], ah	; Width of each channel = channelWidth + 1, i.e. max 4 (min 1)
+	mov al, ah
+	mul dh
+	mov byte [di+PlayerState.bytesPerLine], al	; Number of bytes per line
 %endmacro
 
 
@@ -272,7 +277,7 @@ ENDSTRUC
 	mov byte [di+PlayerChannel.hold], 0
 %endmacro
 
-
+; @param %1 SRC: state base address
 %macro SONG_STEP 1
 	mov word si, %1								; PlayerState
 	mov word di, %1								; PlayerState
@@ -348,6 +353,7 @@ ENDSTRUC
 	and byte ah, 0Fh
 	inc byte ah
 	mov byte [di+PlayerState.channels], ah		; Channels (4 bit) = channels + 1, i.e. max 16 (min 1)
+	mov byte dh, ah
 	cmp byte ah, 2								; 2 = Max Channels
 	jle %%limit
 	mov byte ah, 2
@@ -357,6 +363,9 @@ ENDSTRUC
 	shr byte ah, 6
 	inc byte ah
 	mov byte [di+PlayerState.channelWidth], ah	; Width of each channel = channelWidth + 1, i.e. max 4 (min 1)
+	mov al, ah
+	mul dh										; ax = al * dh
+	mov byte [di+PlayerState.bytesPerLine], al	; Number of bytes per line
 %%step_done:
 %endmacro
 
@@ -406,6 +415,14 @@ ENDSTRUC
 	mov word si, %1								; PlayerState
 	mov word di, %1								; PlayerState
 
+	mov dh, 0
+	mov dl, [si+PlayerState.bytesPerLine]
+	mov ax, [si+PlayerState.patPos]
+	mul dx										; dx:ax = ax * dx
+	mov bx, ax
+	add bx, [si+PlayerState.patAddr]			; bx: address of line
+
+	mov dx, [si+PlayerState.size]				; dx: address of 1st channel
 %endmacro
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -419,6 +436,7 @@ audio_init:
 	SONG_DECODE player0, empty_song
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
+	SONG_DECODE_PATTERN player0
 
 	; read the original timer interrupt
 	mov ax, 0
