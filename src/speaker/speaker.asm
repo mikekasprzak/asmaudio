@@ -140,6 +140,7 @@ STRUC PlayerState
 .channelLimit:	resb 1			; * Total number of channels to decode, limited by the channel max
 .channelWidth:	resb 1			; * Width of a channel (bytes)
 .bytesPerLine:	resb 1			; * Total number of bytes per line
+.padding2:		resb 1
 .size:
 ENDSTRUC
 
@@ -147,46 +148,10 @@ STRUC PlayerChannel
 .note:			resb 1			; * Note
 .instr:			resb 1			; * Instrument
 .vol:			resb 1			; * Volume
-.hold:			resb 1			; * Hold (how long since the note was last changed)
+;.hold:			resb 1			; * Hold (how long since the note was last changed)
 ;FX go here
 .size:
 ENDSTRUC
-; ----------------------------------------------------------------------------------------------- ;
-; @param %1 State address
-;%macro SONG_DECODE_PAT 1
-;	mov word si, %1 + State.data
-;
-;	mov word ax, [si]	; ax = State.data address. auto-inc, si = State.seq
-;	mov word bx, [si+2]	; bx = State.seq index. auto-inc, si = State.pat
-;	mov word di, si		; di = State.pat address
-;	mov word si, ax		; si = State.data address
-;	mov word ax, [si]	; ax = sizeof the Header section
-;	add word si, ax		; si = Sequence section
-;	mov word dx, [si]	; dx = sizeof the Sequence section (in bytes). auto-inc, si = Sequence #0 address
-;	; *** expecting si+2
-;		add si, 2
-;	mov word ax, si		; ax = Sequence #0 address
-;	shl word bx, 1		; bx = State.seq * 2
-;	add word si, bx		; si = Sequence State.seq address
-;	mov word cx, [si]	; cx = Sequency Index
-;	;mov word [di], ax	; State.pat = Index of the Pattern in the Sequence
-;
-;	mov word si, ax		; si = Sequency #0 address
-;	add word si, dx		; si = Pattern #0 address
-;	cmp word cx, 0		; zf = (cx == 0)
-;	jz %%done
-;%%loop:
-;	mov word ax, [si]	; Read and Auto-Inc
-;	; *** expecting si+2
-;		add si, 2
-;	add word si, ax		; Add Section Size (moving us to the next section)
-;
-;	dec word cx			; Decrement counter
-;	jnz %%loop			; loop until we reach the section
-;%%done:
-;	mov word ax, si
-;	mov word [di], ax	; State.pat = Pattern CX's address
-;%endmacro
 ; ----------------------------------------------------------------------------------------------- ;
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -279,7 +244,7 @@ ENDSTRUC
 	mov byte [di+PlayerChannel.note], PLAYER_NOTE_OFF
 	mov byte [di+PlayerChannel.instr], 0
 	mov byte [di+PlayerChannel.vol], 0
-	mov byte [di+PlayerChannel.hold], 0
+;	mov byte [di+PlayerChannel.hold], 0
 %endmacro
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -327,6 +292,7 @@ ENDSTRUC
 	; DECODE THE SEQUENCE
 %%decode_sequence:
 	mov bx, [si+PlayerState.seqPos]
+	inc bx
 	shl bx, 1
 	add bx, [si+PlayerState.seqAddr]
 	mov dx, [bx]								; dx: Pattern Number = seqAddr + (seqPos << 1)
@@ -444,12 +410,15 @@ audio_init:
 	nop
 	nop
 
-bakk:	
+loop_test:	
 	SONG_STEP player0
 	nop
 	nop
+	cmp byte [di+PlayerState.tick], PLAYER_TICKS_PER_LINE
+	jnz skip_test
 	SONG_DECODE_PATTERN player0
-	jmp bakk
+skip_test:
+	jmp loop_test
 	
 	nop
 	nop
