@@ -126,6 +126,7 @@ STRUC PlayerState
 ;.tps:			resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
 .maxChannels:	resb 1			; How many Channels to decode
 .padding:   	resb 1
+
 .dataAddr:		resw 1			; Data Address
 .seqAddr:		resw 1			; Sequence Address
 .seqLength:		resw 1			; Sequence Length
@@ -330,11 +331,13 @@ ENDSTRUC
 	add bx, [si+PlayerState.seqAddr]
 	mov dx, [bx]								; dx: Pattern Number = seqAddr + (seqPos << 1)
 
+	push si
+	; IMPORTANT: si has changed to SongPattern
 	mov si, [si+PlayerState.patStartAddr]		; si: Pattern Start Address
 
 	; check if we're already at the beginning
 	cmp dx, 0
-	jz %%decode_sequence_done
+	jz %%decode_sequence_done					; jz is a synonym for je
 
 	; loop until we reach the desired chunk
 %%decode_sequence_loop:
@@ -344,6 +347,7 @@ ENDSTRUC
 	jnz %%decode_sequence_loop
 %%decode_sequence_done:
 	mov word [di+PlayerState.patAddr], si
+	pop si
 
 	; Decode the Height+Width section
 	mov word bx, [si+SongPattern.heightWidth]	; bx: Height+Width... i.e. Height+Channels+ChannelWidth
@@ -605,8 +609,10 @@ empty_song:
 	dw 0										; Padding... could be whatever we want
 
 	; ORDER SECTION
-	dw 2+2										; SECTION SIZE
+	dw 2+6										; SECTION SIZE
 	; Data
+	dw 0
+	dw 0
 	dw 0
 
 	; PATTERN SECTION
