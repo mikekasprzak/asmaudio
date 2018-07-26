@@ -6,11 +6,9 @@ section .text
 ; ----------------------------------------------------------------------------------------------- ;
 ; Jump Table - begins at "origin+4"
 jump_table:
-	; function 0
-	ret							; just returns (which makes running us as a .com file do nothing)
-	nop
-	nop
-	nop
+	; function 0				; interrupt
+	jmp word audio_interrupt
+	retf
 	; function 1
 	jmp word audio_init			; initializes audio
 	nop
@@ -319,8 +317,8 @@ ENDSTRUC
 	and word ax, 03FFh
 	inc word ax
 	mov word [di+PlayerState.patLength], ax		; Height (12 bits)
-	;mov word [di+PlayerState.patPos], 0			; Position (start at zero)
-	;mov byte [di+PlayerState.tick], 6			; Tick (start at TickPerLine)
+	;mov word [di+PlayerState.patPos], 0		; Position (start at zero) --------- REDUNDANT
+	;mov byte [di+PlayerState.tick], 6			; Tick (start at TickPerLine) ------ REDUNDANT
 	mov word ax, bx
 	shr byte ah, 2								; Instead of shifting by 10, shift the high-bit by 2 and use it
 	and byte ah, 0Fh
@@ -396,48 +394,26 @@ audio_init:
 	mov [old_interrupt+0], bx
 	mov [old_interrupt+2], cx
 
-	nop
-	nop
-
 	; setup player
 	SONG_DECODE player0, empty_song
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
 	SONG_DECODE_PATTERN player0
+	call speaker_decode
 
-	nop
-	nop
-
-loop_test:	
-	SONG_STEP player0
-	nop
-	nop
-	cmp byte [di+PlayerState.tick], PLAYER_TICKS_PER_LINE
-	jnz skip_test
-	SONG_DECODE_PATTERN player0
-skip_test:
-	jmp loop_test
-	
-	nop
-	nop
+	; Configure PIT2 to modulate a square wave
+	SPEAKER_PIT2_INIT
 
 	; switch to our custom timer interrupt
 	cli
 	mov ax, 0
 	mov es, ax
-	mov ax, audio_interrupt
+	mov ax, jump_table
 	mov [es:(1Ch*4)+0], ax
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
 	sti
-
-	; Configure PIT2 to modulate a square wave
-	SPEAKER_PIT2_INIT
-
-	mov ax, 4444
-	SPEAKER_PIT2_FREQ
-	SPEAKER_ON
-
+	
 	; restore DS, ES and return
 	pop es
 	pop ds
@@ -481,13 +457,13 @@ audio_playMusic:
 	push ds
 	push es
 
+	cli
 	SONG_DECODE player0, ax
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
-
-	; Set PIT frequency to 1MHz / BPM*LPB*TPL
-	;mov ax, 0
-	;SPEAKER_PIT0_FREQ
+	SONG_DECODE_PATTERN player0
+	call speaker_decode
+	sti
 
 	; restore DS, ES and return
 	pop es
@@ -535,6 +511,37 @@ audio_resumeSound:
 	retf
 
 
+;arp: db 0
+
+speaker_decode:
+;	inc byte [arp]
+
+	mov di, player0
+	xor bh, bh
+	mov bl, [di+PlayerState.size]
+	cmp bl, 07fh
+	jz sd_note_off
+
+sd_note_on:
+;	mov al, [arp]
+;	and al, 1
+;	mov ah, 12
+;	mul ah
+;	add bx, ax 
+
+	;sub bx, 12					; lower one octave
+	add bx, bx					; bx+bx
+	add bx, note_table
+	mov ax, [bx]
+	SPEAKER_PIT2_FREQ
+	SPEAKER_ON
+
+	jp sd_done
+sd_note_off:
+	SPEAKER_OFF
+sd_done:
+	ret
+
 ; ----------------------------------------------------------------------------------------------- ;
 ; Never called directly, but ticked many times per second for music playback
 audio_interrupt:
@@ -545,14 +552,18 @@ audio_interrupt:
 	push si
 	push di
 	push ds
-
+	
 	mov ax, cs
 	mov ds, ax
 
-;	SONG_STEP player0
+	SONG_STEP player0
+	cmp byte [di+PlayerState.tick], PLAYER_TICKS_PER_LINE
+	jnz ai_done
 
-	;SPEAKER_TOGGLE
-
+	SONG_DECODE_PATTERN player0
+ai_done:
+	call speaker_decode
+	
 	pop ds
 	pop di
 	pop si
@@ -584,12 +595,14 @@ empty_song:
 
 	; PATTERN SECTION
 	dw 2+2+6									; SECTION SIZE
-	dw ((6-1)<<0) | ((1-1)<<10) | ((1-1)<<14)	; Height [10], Channels [4], Channel Width [2]
+	dw ((8-1)<<0) | ((1-1)<<10) | ((1-1)<<14)	; Height [10], Channels [4], Channel Width [2]
 	; Data
 	db 24h
+	db 0
+	db 0
 	db 7fh
 	db 0
-	db 28h
+	db 25h
 	db 7fh
 	db 0
 
