@@ -400,6 +400,7 @@ audio_init:
 	SONG_CHANNEL_RESET player0channel1
 	SONG_DECODE_PATTERN player0
 	call speaker_decode
+	call speaker_setbpm
 
 	; Configure PIT2 to modulate a square wave
 	SPEAKER_PIT2_INIT
@@ -468,6 +469,7 @@ audio_playMusic:
 	SONG_CHANNEL_RESET player0channel1
 	SONG_DECODE_PATTERN player0
 	call speaker_decode
+	call speaker_setbpm
 	sti
 
 	; restore DS, ES and return
@@ -516,25 +518,18 @@ audio_resumeSound:
 	retf
 
 
-;arp: db 0
-
 speaker_decode:
-;	inc byte [arp]
-
 	mov di, player0
-	xor bh, bh
 	mov bl, [di+PlayerState.size]
 	cmp bl, 07fh
 	jz sd_note_off
 
 sd_note_on:
-;	mov al, [arp]
-;	and al, 1
-;	mov ah, 12
-;	mul ah
-;	add bx, ax 
-
-	;sub bx, 12					; lower one octave
+	xor bh, bh
+	sub bx, 12					; lower one octave
+	;mov ax, 07Fh-24
+	;sub ax, bx
+	;mov bx, ax
 	add bx, bx					; bx+bx
 	add bx, note_table
 	mov ax, [bx]
@@ -545,6 +540,22 @@ sd_note_on:
 sd_note_off:
 	SPEAKER_OFF
 sd_done:
+	ret
+
+
+speaker_setbpm:
+	mov di, player0
+
+	mov ax, [di+PlayerState.bpm]
+	mov bx, [di+PlayerState.lpb]
+	mul bx
+	mov bx, [di+PlayerState.tpl]
+	mul bx
+	mov bx, 18+18+18+18
+	mul bx
+	
+	SPEAKER_PIT0_FREQ
+	
 	ret
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -600,15 +611,64 @@ empty_song:
 
 	; PATTERN SECTION
 	dw 2+2+6									; SECTION SIZE
-	dw ((8-1)<<0) | ((1-1)<<10) | ((1-1)<<14)	; Height [10], Channels [4], Channel Width [2]
+	dw ((57-1)<<0) | ((1-1)<<10) | ((1-1)<<14)	; Height [10], Channels [4], Channel Width [2]
 	; Data
 	db 24h
 	db 0
+	db 25h
+	db 0
+	db 26h
+	db 0
+	db 27h
+	db 0
+	db 28h
+	db 0
+	db 29h
+	db 0
+	db 2Ah
+	db 0
+	db 2Bh
+	db 0
+	db 2Ch
+	db 0
+	db 2Dh
+	db 0
+	db 2Eh
+	db 0
+	db 2Fh
 	db 0
 	db 7fh
 	db 0
+	db 0
+	db 0
+	db 0
+	db 24h
+	db 7fh
 	db 25h
 	db 7fh
+	db 26h
+	db 7fh
+	db 27h
+	db 7fh
+	db 28h
+	db 7fh
+	db 29h
+	db 7fh
+	db 2Ah
+	db 7fh
+	db 2Bh
+	db 7fh
+	db 2Ch
+	db 7fh
+	db 2Dh
+	db 7fh
+	db 2Eh
+	db 7fh
+	db 2Fh
+	db 7fh
+	db 0
+	db 0
+	db 0
 	db 0
 
 ; ----------------------------------------------------------------------------------------------- ;
