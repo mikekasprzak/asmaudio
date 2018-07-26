@@ -100,8 +100,8 @@ main:
 	call far [audio_init]
 
 	; Play the song
-;	mov ax, song
-;	call far [audio_playMusic]
+	mov ax, (song - audio_engine)
+	call far [audio_playMusic]
 
 	PRINT(tPressAKey)
 

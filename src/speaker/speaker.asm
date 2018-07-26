@@ -455,7 +455,12 @@ audio_uninit:
 audio_playMusic:
 	; store DS, ES
 	push ds
-	push es
+;	push es
+
+	push ax
+	mov ax, cs
+	mov ds, ax
+	pop ax
 
 	cli
 	SONG_DECODE player0, ax
@@ -466,7 +471,7 @@ audio_playMusic:
 	sti
 
 	; restore DS, ES and return
-	pop es
+;	pop es
 	pop ds
 	retf
 
@@ -552,7 +557,7 @@ audio_interrupt:
 	push si
 	push di
 	push ds
-	
+
 	mov ax, cs
 	mov ds, ax
 
