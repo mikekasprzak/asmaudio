@@ -126,7 +126,7 @@ STRUC PlayerState
 ;.tps:			resw 1			; Ticks per Second (i.e. BPM*LPB*TPL/60)
 .maxChannels:	resb 1			; How many Channels to decode
 .padding:   	resb 1
-
+; 6
 .dataAddr:		resw 1			; Data Address
 .seqAddr:		resw 1			; Sequence Address
 .seqLength:		resw 1			; Sequence Length
@@ -216,7 +216,7 @@ ENDSTRUC
 	inc word ax
 	mov word [di+PlayerState.patLength], ax		; Height (12 bits)
 	mov word [di+PlayerState.patPos], 0			; Position (start at zero)
-	mov word [di+PlayerState.tick], 6			; Tick (start at TickPerLine)
+	mov byte [di+PlayerState.tick], 6			; Tick (start at TickPerLine)
 	mov word ax, bx
 	shr byte ah, 2								; Instead of shifting by 10, shift the high-bit by 2 and use it
 	and byte ah, 0Fh
@@ -297,7 +297,6 @@ ENDSTRUC
 	add bx, [si+PlayerState.seqAddr]
 	mov dx, [bx]								; dx: Pattern Number = seqAddr + (seqPos << 1)
 
-	push si
 	; IMPORTANT: si has changed to SongPattern
 	mov si, [si+PlayerState.patStartAddr]		; si: Pattern Start Address
 
@@ -313,7 +312,6 @@ ENDSTRUC
 	jnz %%decode_sequence_loop
 %%decode_sequence_done:
 	mov word [di+PlayerState.patAddr], si
-	pop si
 
 	; Decode the Height+Width section
 	mov word bx, [si+SongPattern.heightWidth]	; bx: Height+Width... i.e. Height+Channels+ChannelWidth
@@ -321,8 +319,8 @@ ENDSTRUC
 	and word ax, 03FFh
 	inc word ax
 	mov word [di+PlayerState.patLength], ax		; Height (12 bits)
-	mov word [di+PlayerState.patPos], 0			; Position (start at zero)
-	mov word [di+PlayerState.tick], 6			; Tick (start at TickPerLine)
+	;mov word [di+PlayerState.patPos], 0			; Position (start at zero)
+	;mov byte [di+PlayerState.tick], 6			; Tick (start at TickPerLine)
 	mov word ax, bx
 	shr byte ah, 2								; Instead of shifting by 10, shift the high-bit by 2 and use it
 	and byte ah, 0Fh
