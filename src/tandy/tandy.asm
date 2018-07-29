@@ -599,12 +599,23 @@ sd_done:
 setbpm:
 	mov si, player0
 
+;	mov ax, [si+PlayerState.bpm]
+;	mov bx, [si+PlayerState.lpb]
+;	mul bx
+;	mov bx, [si+PlayerState.tpl]
+;	mul bx
+;	mov bx, 18+18+18+18+18+18+18+6;+18+18+18+18+18+18+18
+;	mul bx
+
 	mov ax, [si+PlayerState.bpm]
 	mov bx, [si+PlayerState.lpb]
 	mul bx
 	mov bx, [si+PlayerState.tpl]
 	mul bx
-	mov bx, 18+18+18+18+18+18+18+6;+18+18+18+18+18+18+18
+	mov ax, bx
+	mov ax, 1193182/19
+	div bx
+	mov bx, 19+19+18;19*3;19+19+19
 	mul bx
 
 	SPEAKER_PIT0_FREQ

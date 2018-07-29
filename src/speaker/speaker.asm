@@ -617,7 +617,10 @@ setbpm:
 	mul bx
 	mov bx, [si+PlayerState.tpl]
 	mul bx
-	mov bx, 18+18+18+18+18+18+18+18+18+18+18+18+18+18+18+18+18+18+18
+	mov ax, bx
+	mov ax, 1193182/19
+	div bx
+	mov bx, 19+19+18;19*3
 	mul bx
 
 	SPEAKER_PIT0_FREQ
