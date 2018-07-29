@@ -343,7 +343,8 @@ ENDSTRUC
 ; ----------------------------------------------------------------------------------------------- ;
 %macro SONG_DECODE_PATTERN 1
 	mov word si, %1								; PlayerState
-	mov word di, %1								; PlayerState
+	mov word di, %1+PlayerState.size			; PlayerState
+;	add di, PlayerState.size					; di: address of 1st channel
 
 	mov cl, [si+PlayerState.channelLimit]
 	mov ch, [si+PlayerState.channelWidth]
@@ -352,24 +353,23 @@ ENDSTRUC
 	mov ax, [si+PlayerState.patPos]
 	mul dx										; dx:ax = ax * dx
 	mov bx, ax
-	add bx, [si+PlayerState.patAddr]			
+	add bx, [si+PlayerState.patAddr]
 	add bx, SongPattern.data					; bx: address of line
 
-	add di, PlayerState.size					; di: address of 1st channel
-
+%%fetch_note:
 	mov dx, [bx]
 	mov al, dl
 	and al, 07Fh
-	jz %%done
+	jz %%done									; if even after anding we get zero, then the note should not change
 %%play_note:
-	mov byte [di+PlayerChannel.note], al
+	mov [di+PlayerChannel.note], al
 %%next_channel:
 	add di, PlayerChannel.size
 	mov ah, 0
 	mov al, ch
 	add bx, ax
 	dec cl
-	jnz %%play_note
+	jnz %%fetch_note
 %%done:
 %endmacro
 
@@ -394,16 +394,17 @@ audio_init:
 	mov [old_interrupt+0], bx
 	mov [old_interrupt+2], cx
 
+	; Configure PIT2 to modulate a square wave
+	SPEAKER_PIT2_INIT
+
 	; setup player
 	SONG_DECODE player0, empty_song
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
 	SONG_DECODE_PATTERN player0
+	mov si, player0
 	call speaker_decode
 	call speaker_setbpm
-
-	; Configure PIT2 to modulate a square wave
-	SPEAKER_PIT2_INIT
 
 	; switch to our custom timer interrupt
 	cli
@@ -414,7 +415,7 @@ audio_init:
 	mov ax, cs
 	mov [es:(1Ch*4)+2], ax
 	sti
-	
+
 	; restore DS, ES and return
 	pop es
 	pop ds
@@ -429,6 +430,13 @@ audio_uninit:
 	mov ax, cs
 	mov ds, ax
 
+	; Set frequency back to default (0, aka 65536)
+	mov ax, 0
+	SPEAKER_PIT0_FREQ
+
+	; turn off the speaker
+	SPEAKER_OFF
+
 	; restore the original timer interrupt
 	cli
 	mov ax, 0
@@ -438,13 +446,6 @@ audio_uninit:
 	mov ax, [old_interrupt+2]
 	mov [es:(1Ch*4)+2], ax
 	sti
-
-	; Set frequency back to default (0, aka 65536)
-	mov ax, 0
-	SPEAKER_PIT0_FREQ
-
-	; turn off the speaker
-	SPEAKER_OFF
 
 	; restore DS, ES and return
 	pop es
@@ -468,6 +469,7 @@ audio_playMusic:
 	SONG_CHANNEL_RESET player0channel0
 	SONG_CHANNEL_RESET player0channel1
 	SONG_DECODE_PATTERN player0
+	mov si, player0
 	call speaker_decode
 	call speaker_setbpm
 	sti
@@ -518,25 +520,91 @@ audio_resumeSound:
 	retf
 
 
+
+; Play a sound, using ARP
+; @param si address of player
+speaker_decode_arp:
 speaker_decode:
-	mov di, player0
-	mov bl, [di+PlayerState.size]
-	cmp bl, 07fh
+	mov ch, 0							; loop variable
+	mov cl, 0FFh						; channel
+	mov dl, 0							; channels found
+	mov bx, si
+	add bx, PlayerState.size
+
+sd_channel_check:
+	mov al, [bx]
+	cmp al, PLAYER_NOTE_OFF
+	jz sd_channel_next
+
+	mov cl, ch
+	inc dl
+
+sd_channel_next:
+	inc ch
+	cmp ch, PLAYER_CHANNEL_MAX
+	jz sd_channel_done
+
+	add bx, PlayerChannel.size
+
+	jmp sd_channel_check
+
+sd_channel_done:
+	cmp dl, 1
+	jg speaker_decode_cheat
+	jl sd_note_off
+	jmp speaker_decode_channel
+
+
+; Play a sound using ARP-HACK
+speaker_decode_cheat:
+;speaker_decode:
+	; Simplest form of ARP: always alternate
+	mov al, [si+PlayerState.tick]
+	and al, PLAYER_CHANNEL_MAX-1					; Assumes PLAYER_CHANNEL_MAX is a power of 2
+	mov cl, al
+
+; play channel CL
+; @param cl channel to play
+; @param si address of player
+speaker_decode_channel:
+	add si, PlayerState.size
+	cmp cl, 0
+	jz sd_read_arp
+sd_next_arp:
+	add si, PlayerChannel.size
+	dec cl
+	jnz sd_next_arp
+sd_read_arp:
+	mov bl, [si]
+	jmp sd_note_decode
+
+
+
+; Play a sound, without ARP
+; @param si address of player
+speaker_decode_noarp:
+;speaker_decode:
+	add si, PlayerState.size
+	mov bl, [si]
+
+sd_note_decode:
+	cmp bl, 07fh					; if note is a "note off", jump to note-off
 	jz sd_note_off
+	cmp bl, 12						; if note is below valid range, jump to note-off
+	jl sd_note_off
+	cmp bl, 12+(12*8)				; if note is above valid range, jump to note-off
+	jge sd_note_off
 
 sd_note_on:
 	xor bh, bh
-	sub bx, 12					; lower one octave
-	;mov ax, 07Fh-24
-	;sub ax, bx
-	;mov bx, ax
-	add bx, bx					; bx+bx
+	sub bx, 12						; lower one octave
+	add bx, bx						; bx*2
 	add bx, note_table
 	mov ax, [bx]
 	SPEAKER_PIT2_FREQ
 	SPEAKER_ON
 
-	jp sd_done
+	jmp sd_done
 sd_note_off:
 	SPEAKER_OFF
 sd_done:
@@ -544,18 +612,18 @@ sd_done:
 
 
 speaker_setbpm:
-	mov di, player0
+	mov si, player0
 
-	mov ax, [di+PlayerState.bpm]
-	mov bx, [di+PlayerState.lpb]
+	mov ax, [si+PlayerState.bpm]
+	mov bx, [si+PlayerState.lpb]
 	mul bx
-	mov bx, [di+PlayerState.tpl]
+	mov bx, [si+PlayerState.tpl]
 	mul bx
-	mov bx, 18+18+18+18
+	mov bx, 18+18+18+18+18+18+18+18+18+18
 	mul bx
-	
+
 	SPEAKER_PIT0_FREQ
-	
+
 	ret
 
 ; ----------------------------------------------------------------------------------------------- ;
@@ -578,8 +646,9 @@ audio_interrupt:
 
 	SONG_DECODE_PATTERN player0
 ai_done:
+	mov si, player0
 	call speaker_decode
-	
+
 	pop ds
 	pop di
 	pop si
