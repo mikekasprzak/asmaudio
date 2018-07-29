@@ -261,7 +261,7 @@ tSpeakerDriverFile3:
 
 
 tSongFile:
-	db "sp-song.bin", 0, "$"
+	db "melody.bin", 0, "$"
 
 
 
