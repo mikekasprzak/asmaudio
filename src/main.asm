@@ -83,6 +83,7 @@ main:
 	call read_file
 	jc error
 
+
 	PRINT(tLoading)
 	PRINT(tSpeakerDriverFile0)
 	PRINT(tNewline)
@@ -95,6 +96,7 @@ main:
 
 	call play_engine
 
+
 	PRINT(tNewline)
 	PRINT(tLoading)
 	PRINT(tSpeakerDriverFile1)
@@ -102,6 +104,34 @@ main:
 
 	; Read the Sound Engine
 	mov dx, tSpeakerDriverFile1
+	mov cx, audio_engine
+	call read_file
+	jc error
+
+	call play_engine
+
+
+	PRINT(tNewline)
+	PRINT(tLoading)
+	PRINT(tSpeakerDriverFile2)
+	PRINT(tNewline)
+
+	; Read the Sound Engine
+	mov dx, tSpeakerDriverFile2
+	mov cx, audio_engine
+	call read_file
+	jc error
+
+	call play_engine
+
+
+	PRINT(tNewline)
+	PRINT(tLoading)
+	PRINT(tSpeakerDriverFile3)
+	PRINT(tNewline)
+
+	; Read the Sound Engine
+	mov dx, tSpeakerDriverFile3
 	mov cx, audio_engine
 	call read_file
 	jc error
@@ -221,13 +251,13 @@ tError:
 
 tSpeakerDriverFile:
 tSpeakerDriverFile0:
-	db "speaker.drv", 0, "$"
+	db "speaker.drv", 0, " - PC Speaker$"
 tSpeakerDriverFile1:
-	db "tandy.drv", 0, "$"
+	db "tandy.drv", 0, " - Tandy 1000$"
 tSpeakerDriverFile2:
-	db "roland.drv", 0, "$"
+	db "opl.drv", 0, " - Adlib/Sound Blaster/OPL$"
 tSpeakerDriverFile3:
-	db "opl.drv", 0, "$"
+	db "roland.drv", 0, " - MPU-401/Roland Sound Canvas$"
 
 
 tSongFile:
