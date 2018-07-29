@@ -404,7 +404,7 @@ audio_init:
 	SONG_DECODE_PATTERN player0
 	mov si, player0
 	call speaker_decode
-	call speaker_setbpm
+	call setbpm
 
 	; switch to our custom timer interrupt
 	cli
@@ -455,9 +455,8 @@ audio_uninit:
 ; ----------------------------------------------------------------------------------------------- ;
 ; @param ax address of song to play
 audio_playMusic:
-	; store DS, ES
+	; store DS
 	push ds
-;	push es
 
 	push ax
 	mov ax, cs
@@ -471,11 +470,10 @@ audio_playMusic:
 	SONG_DECODE_PATTERN player0
 	mov si, player0
 	call speaker_decode
-	call speaker_setbpm
+	call setbpm
 	sti
 
-	; restore DS, ES and return
-;	pop es
+	; restore DS and return
 	pop ds
 	retf
 
@@ -611,7 +609,7 @@ sd_done:
 	ret
 
 
-speaker_setbpm:
+setbpm:
 	mov si, player0
 
 	mov ax, [si+PlayerState.bpm]
