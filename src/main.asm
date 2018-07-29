@@ -23,6 +23,11 @@ section .text
 	int 16h
 %endmacro
 
+%macro KEY_CONSUME 0
+	mov ah, 0
+	int 16h
+%endmacro
+
 
 ; @returns AX File Handle
 ; @returns CF if error
@@ -68,12 +73,44 @@ section .text
 
 ; ----------------------------------------------------------------------------------------------- ;
 main:
+	PRINT(tLoading)
+	PRINT(tSongFile)
+	PRINT(tNewline)
+
+	; Read the Song
+	mov dx, tSongFile
+	mov cx, song
+	call read_file
+	jc error
+
+	PRINT(tLoading)
+	PRINT(tSpeakerDriverFile0)
+	PRINT(tNewline)
+
 	; Read the Sound Engine
-	mov dx, tSpeakerDriverFile
+	mov dx, tSpeakerDriverFile0
 	mov cx, audio_engine
 	call read_file
 	jc error
 
+	call play_engine
+
+	PRINT(tNewline)
+	PRINT(tLoading)
+	PRINT(tSpeakerDriverFile1)
+	PRINT(tNewline)
+
+	; Read the Sound Engine
+	mov dx, tSpeakerDriverFile1
+	mov cx, audio_engine
+	call read_file
+	jc error
+
+	call play_engine
+
+	ret
+
+play_engine:
 	; Hook-up the jump table for the active Sound Engine
 	mov ax, audio_engine
 	shr ax, 4
@@ -90,12 +127,6 @@ main:
 	mov [audio_pauseSound+2], ax
 	mov [audio_resumeSound+2], ax
 
-	; Read the Song
-	mov dx, tSongFile
-	mov cx, song
-	call read_file
-	jc error
-
 	; Initialize the Sound Engine
 	call far [audio_init]
 
@@ -108,6 +139,8 @@ main:
 loop:
 	KEY_GET
 	jz loop
+
+	KEY_CONSUME
 
 	; Uninitialize the Sound Engine
 	call far [audio_uninit]
@@ -177,18 +210,28 @@ audio_resumeSound:
 
 ; Strings
 tPressAKey:
-	db "Press a key to Exit", 10, '$';
+	db "Press a key", 13, 10, '$'
+tLoading:
+	db "Loading: ", '$'
+tNewline:
+	db 13, 10, '$'
 
 tError:
-	db "Error", 10, "$";
+	db "Error", 13, 10, "$"
 
 tSpeakerDriverFile:
-;	db "speaker.drv", 0;
-	db "tandy.drv", 0;
-;	db "roland.drv", 0;
-;	db "opl.drv", 0;
+tSpeakerDriverFile0:
+	db "speaker.drv", 0, "$"
+tSpeakerDriverFile1:
+	db "tandy.drv", 0, "$"
+tSpeakerDriverFile2:
+	db "roland.drv", 0, "$"
+tSpeakerDriverFile3:
+	db "opl.drv", 0, "$"
+
+
 tSongFile:
-	db "sp-song.bin", 0;
+	db "sp-song.bin", 0, "$"
 
 
 
